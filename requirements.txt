@@ -4,4 +4,4 @@ gotrue==2.1.0
 httpx==0.25.2
 pytz
 python-dotenv
-google-generativeai
+google-genai
