@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes, CommandHandler
 
 import database as db
 import messages as msg
-from utils import get_display_name, pluralize_days
+from utils import get_display_name, pluralize_days, fmt_number
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 
@@ -22,18 +22,29 @@ def _month_label(month: int, year: int) -> str:
 
 
 def build_activity_leaderboard(activity_type: str, month: int, year: int) -> str:
-    """Возвращает отформатированный лидерборд по одной активности (без заголовка)."""
-    rows = db.get_activity_top(activity_type, month, year)
-    rows.sort(key=lambda r: get_display_name(r["user"]).lower())
-
-    lines = []
-    for r in rows:
-        name = get_display_name(r["user"])
-        if db.is_jailed(r["user"]["user_id"], activity_type):
-            lines.append(f"{name} — 🚫")
-        else:
-            lines.append(f"{name} — {pluralize_days(r['days'])}")
-    return "\n".join(lines) if lines else "Пока никто не отметился."
+    """Отформатированный лидерборд по одной активности (без заголовка)."""
+    if activity_type == "steps":
+        rows = db.get_steps_leaderboard(month, year)
+        rows.sort(key=lambda r: get_display_name(r["user"]).lower())
+        lines = []
+        for r in rows:
+            name = get_display_name(r["user"])
+            if db.is_jailed(r["user"]["user_id"], "steps"):
+                lines.append(f"{name} — 🚫")
+            else:
+                lines.append(f"{name} — {pluralize_days(r['days'])} / {fmt_number(r['steps_sum'])} шагов")
+        return "\n".join(lines) if lines else "Пока никто не отметился."
+    else:
+        rows = db.get_activity_top(activity_type, month, year)
+        rows.sort(key=lambda r: get_display_name(r["user"]).lower())
+        lines = []
+        for r in rows:
+            name = get_display_name(r["user"])
+            if db.is_jailed(r["user"]["user_id"], activity_type):
+                lines.append(f"{name} — 🚫")
+            else:
+                lines.append(f"{name} — {pluralize_days(r['days'])}")
+        return "\n".join(lines) if lines else "Пока никто не отметился."
 
 
 async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -77,15 +88,28 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     stats = db.get_user_stats(uid, month, year)
     display = get_display_name(target_user_data)
 
-    steps_str = "🚫" if db.is_jailed(uid, "steps") else pluralize_days(stats["steps"])
-    exercise_str = "🚫" if db.is_jailed(uid, "exercise") else pluralize_days(stats["exercise"])
+    steps_jailed = db.is_jailed(uid, "steps")
+    exercise_jailed = db.is_jailed(uid, "exercise")
+
+    steps_days_str = "🚫" if steps_jailed else pluralize_days(stats["steps"])
+    exercise_str = "🚫" if exercise_jailed else pluralize_days(stats["exercise"])
+
+    monthly_steps = db.get_monthly_steps(uid, month, year)
+    total_steps = db.get_total_steps(uid)
+    xp = db.get_user_xp(uid)
+    level = db.get_level(xp)
+
+    monthly_steps_str = "🚫" if steps_jailed else fmt_number(monthly_steps)
 
     text = (
         f"{msg.get(msg.STATS_HEADER)}\n\n"
-        f"🗂 Досье на бойца: <b>{display}</b>\n\n"
+        f"🗂 Досье пирата: <b>{display}</b>\n\n"
         f"📅 {_month_label(month, year)}:\n"
-        f"  🚶 Шагает: {steps_str}\n"
-        f"  ⚡ Заряжается: {exercise_str}"
+        f"⚡ Заряжается: {exercise_str}\n"
+        f"🚶 Шагает: {steps_days_str}\n"
+        f"👟 Шагов за месяц: {monthly_steps_str}\n"
+        f"👟 Шагов всего: {fmt_number(total_steps)}\n"
+        f"⭐ XP: {fmt_number(xp)} (Уровень {level})"
     )
     await message.reply_text(text, parse_mode="HTML")
 

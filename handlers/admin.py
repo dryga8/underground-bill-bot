@@ -6,7 +6,8 @@ from telegram.ext import ContextTypes, CommandHandler
 
 import database as db
 import messages as msg
-from config import OWNER_ID, GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID
+from config import OWNER_ID
+from database import get_level
 from utils import get_display_name
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -189,6 +190,47 @@ async def cmd_removedays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
+async def cmd_addxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    caller = update.effective_user
+    if not caller or not _is_privileged(caller.id):
+        await message.reply_text("Недостаточно полномочий. Это для командования.")
+        return
+
+    if not context.args or len(context.args) < 2:
+        await message.reply_text("Формат: /addxp @username 100")
+        return
+
+    username = context.args[0].lstrip("@")
+    try:
+        xp_amount = int(context.args[1])
+    except ValueError:
+        await message.reply_text("XP должен быть числом.")
+        return
+
+    if xp_amount <= 0:
+        await message.reply_text("XP должен быть положительным числом.")
+        return
+
+    target = db.get_user_by_username(username)
+    if not target:
+        await message.reply_text(f"Боец @{username} в архивах не найден.")
+        return
+
+    new_total = db.add_xp(target["user_id"], xp_amount)
+    level = db.get_level(new_total)
+    display = get_display_name(target)
+
+    await message.reply_text(
+        f"{msg.get(msg.XP_ADDED)}\n\n"
+        f"<b>{display}</b> +{xp_amount} XP → {new_total} XP (Уровень {level}).",
+        parse_mode="HTML",
+    )
+
+
 def build_handlers():
     return [
         CommandHandler("addadmin", cmd_addadmin),
@@ -196,4 +238,5 @@ def build_handlers():
         CommandHandler("reset", cmd_reset),
         CommandHandler("adddays", cmd_adddays),
         CommandHandler("removedays", cmd_removedays),
+        CommandHandler("addxp", cmd_addxp),
     ]

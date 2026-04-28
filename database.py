@@ -3,6 +3,19 @@ import datetime
 from supabase import create_client, Client
 from config import SUPABASE_URL, SUPABASE_KEY
 
+LEVELS = [0, 50, 150, 300, 500, 750, 1100, 1600, 2200, 3000,
+          4000, 5200, 6600, 8200, 10000, 12000, 14500, 17500, 21000, 25000]
+
+
+def get_level(xp: int) -> int:
+    level = 0
+    for i, threshold in enumerate(LEVELS):
+        if xp >= threshold:
+            level = i
+    if xp >= LEVELS[-1]:
+        level = len(LEVELS) - 1 + (xp - LEVELS[-1]) // 5000
+    return level
+
 _client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
@@ -54,7 +67,55 @@ def record_activity(user_id: int, activity_type: str, activity_date: datetime.da
         "activity_date": activity_date.isoformat(),
         "month": activity_date.month,
         "year": activity_date.year,
+        "steps_count": 0,
     }).execute()
+
+
+def record_steps(user_id: int, activity_date: datetime.date, steps_count: int) -> None:
+    _client.table("activities").insert({
+        "user_id": user_id,
+        "activity_type": "steps",
+        "activity_date": activity_date.isoformat(),
+        "month": activity_date.month,
+        "year": activity_date.year,
+        "steps_count": steps_count,
+    }).execute()
+
+
+def get_monthly_steps(user_id: int, month: int, year: int) -> int:
+    res = (
+        _client.table("activities")
+        .select("steps_count")
+        .eq("user_id", user_id)
+        .eq("activity_type", "steps")
+        .eq("month", month)
+        .eq("year", year)
+        .execute()
+    )
+    return sum(r.get("steps_count") or 0 for r in res.data)
+
+
+def get_steps_leaderboard(month: int, year: int) -> list[dict]:
+    res = (
+        _client.table("activities")
+        .select("user_id, steps_count")
+        .eq("activity_type", "steps")
+        .eq("month", month)
+        .eq("year", year)
+        .execute()
+    )
+    from collections import defaultdict
+    agg: dict[int, dict] = defaultdict(lambda: {"days": 0, "steps_sum": 0})
+    for row in res.data:
+        agg[row["user_id"]]["days"] += 1
+        agg[row["user_id"]]["steps_sum"] += (row.get("steps_count") or 0)
+
+    result = []
+    for uid, data in agg.items():
+        user = get_user_by_id(uid)
+        if user:
+            result.append({"user": user, "days": data["days"], "steps_sum": data["steps_sum"]})
+    return result
 
 
 def get_user_stats(user_id: int, month: int, year: int) -> dict:
@@ -174,6 +235,44 @@ def remove_days(user_id: int, activity_type: str, days: int, month: int, year: i
     if ids_to_delete:
         _client.table("activities").delete().in_("id", ids_to_delete).execute()
     return len(ids_to_delete)
+
+
+# ---------------------------------------------------------------------------
+# XP
+# ---------------------------------------------------------------------------
+
+def get_user_xp(user_id: int) -> int:
+    res = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
+    return res.data[0]["total_xp"] if res.data else 0
+
+
+def add_xp(user_id: int, xp: int) -> int:
+    existing = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
+    if existing.data:
+        new_total = (existing.data[0]["total_xp"] or 0) + xp
+        _client.table("xp").update({"total_xp": new_total}).eq("user_id", user_id).execute()
+    else:
+        new_total = xp
+        _client.table("xp").insert({"user_id": user_id, "total_xp": new_total}).execute()
+    return new_total
+
+
+# ---------------------------------------------------------------------------
+# Total steps
+# ---------------------------------------------------------------------------
+
+def get_total_steps(user_id: int) -> int:
+    res = _client.table("total_steps").select("all_time_steps").eq("user_id", user_id).limit(1).execute()
+    return res.data[0]["all_time_steps"] if res.data else 0
+
+
+def add_total_steps(user_id: int, steps: int) -> None:
+    existing = _client.table("total_steps").select("all_time_steps").eq("user_id", user_id).limit(1).execute()
+    if existing.data:
+        current = existing.data[0]["all_time_steps"] or 0
+        _client.table("total_steps").update({"all_time_steps": current + steps}).eq("user_id", user_id).execute()
+    else:
+        _client.table("total_steps").insert({"user_id": user_id, "all_time_steps": steps}).execute()
 
 
 # ---------------------------------------------------------------------------

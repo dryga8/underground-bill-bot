@@ -15,8 +15,21 @@ CREATE TABLE activities (
     activity_date DATE NOT NULL,
     month INTEGER NOT NULL,
     year INTEGER NOT NULL,
+    steps_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(user_id, activity_type, activity_date)
+);
+
+-- XP пользователей
+CREATE TABLE IF NOT EXISTS xp (
+    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+    total_xp INTEGER DEFAULT 0
+);
+
+-- Всего шагов за всё время
+CREATE TABLE IF NOT EXISTS total_steps (
+    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+    all_time_steps BIGINT DEFAULT 0
 );
 
 -- Карцер
@@ -29,8 +42,17 @@ CREATE TABLE jails (
     active BOOLEAN DEFAULT TRUE
 );
 
--- Миграция для существующих таблиц
+-- Миграции для существующих таблиц
 ALTER TABLE jails ADD COLUMN IF NOT EXISTS activity_type TEXT DEFAULT 'steps';
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS steps_count INTEGER DEFAULT 0;
+CREATE TABLE IF NOT EXISTS xp (
+    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+    total_xp INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS total_steps (
+    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+    all_time_steps BIGINT DEFAULT 0
+);
 
 -- Жалобы
 CREATE TABLE reports (

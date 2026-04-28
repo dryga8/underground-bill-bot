@@ -25,12 +25,17 @@ def pluralize_days(n: int) -> str:
     return f"{n} дней"
 
 
+def fmt_number(n: int) -> str:
+    """Форматирует число с пробелом как разделителем тысяч: 1234567 → '1 234 567'."""
+    return f"{n:,}".replace(",", " ")
+
+
 def get_display_name(user: dict) -> str:
+    username = user.get("username")
+    if username:
+        return f"@{username}"
     first = (user.get("first_name") or "").strip()
     last = (user.get("last_name") or "").strip()
     if first or last:
         return f"{first} {last}".strip()
-    username = user.get("username")
-    if username:
-        return f"@{username}"
     return "Неизвестный боец"
