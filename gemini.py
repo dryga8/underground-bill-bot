@@ -15,18 +15,23 @@ _PROMPT = (
 
 def recognize_steps(image_bytes: bytes) -> int | None:
     """Распознаёт число шагов на скриншоте. Возвращает None если не распознано."""
+    print(f"[GEMINI] вызов API, размер изображения={len(image_bytes)} байт, ключ={'установлен' if GEMINI_API_KEY else 'ПУСТОЙ'}")
     try:
         response = _model.generate_content([
             _PROMPT,
             {"mime_type": "image/jpeg", "data": image_bytes},
         ])
+        print(f"[GEMINI] ответ получен, finish_reason={getattr(response.candidates[0], 'finish_reason', '?') if response.candidates else 'нет candidates'}")
         raw = response.text.strip()
-        print(f"[GEMINI] ответ: {repr(raw)}")
+        print(f"[GEMINI] текст ответа: {repr(raw)}")
         value = int(raw)
+        print(f"[GEMINI] распознано шагов: {value}")
         return None if value == 0 else value
     except (ValueError, AttributeError) as e:
-        print(f"[GEMINI] не удалось распарсить ответ: {e}")
+        print(f"[GEMINI] не удалось распарсить ответ: {type(e).__name__}: {e}")
         return None
     except Exception as e:
-        print(f"[GEMINI] ошибка API: {e}")
+        import traceback
+        print(f"[GEMINI] ошибка API: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return None
