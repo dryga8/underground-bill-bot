@@ -31,6 +31,10 @@ async def cmd_help(update: Update, _) -> None:
 
 
 def main() -> None:
+    import os
+    print(f"[ENV] все ключи окружения: {sorted(os.environ.keys())}")
+    print(f"[ENV] GEMINI_API_KEY присутствует: {'GEMINI_API_KEY' in os.environ}")
+
     app = Application.builder().token(BOT_TOKEN).build()
 
     # TODO: убрать после получения ID топиков
