@@ -57,8 +57,13 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     target_user_data: dict | None = None
 
-    if message.reply_to_message and message.reply_to_message.from_user:
-        ru = message.reply_to_message.from_user
+    is_real_reply = (
+        message.reply_to_message is not None
+        and message.reply_to_message.from_user is not None
+        and not message.reply_to_message.forum_topic_created
+    )
+    if is_real_reply:
+        ru = message.reply_to_message.from_user  # type: ignore[union-attr]
         db.upsert_user(ru.id, ru.username, ru.first_name, ru.last_name)
         target_user_data = {
             "user_id": ru.id,
