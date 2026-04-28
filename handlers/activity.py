@@ -65,7 +65,7 @@ async def _handle_steps(message, user, context) -> None:
         print(f"[STEPS] ERROR downloading photo: {e}")
         raise
 
-    steps_count = await gemini.recognize_steps(image_bytes)
+    steps_count = gemini.recognize_steps(image_bytes)
     print(f"[STEPS] user={user.id} steps_count={steps_count}")
 
     if steps_count is None:
