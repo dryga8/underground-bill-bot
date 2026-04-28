@@ -1,6 +1,7 @@
 import logging
+import traceback
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 import messages as msg
 from config import BOT_TOKEN, GROUP_ID
@@ -11,6 +12,11 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.error("Необработанное исключение в хендлере:", exc_info=context.error)
+    traceback.print_exc()
 
 
 async def debug_ids(update: Update, _) -> None:
@@ -43,6 +49,8 @@ def main() -> None:
 
     for handler in admin.build_handlers():
         app.add_handler(handler)
+
+    app.add_error_handler(error_handler)
 
     logger.info("Подпольщик Билл выходит на связь...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

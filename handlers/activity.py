@@ -76,34 +76,70 @@ async def _handle_steps(message, user, context) -> None:
     combined = (message.caption or "") + " " + (message.text or "")
     steps_count = _parse_steps_count(combined)
 
+    print(f"[STEPS] user={user.id} combined={repr(combined[:80])} steps_count={steps_count}")
+
     if steps_count is None:
+        print("[STEPS] steps_count=None — число шагов не найдено, выходим")
         return
 
-    db.upsert_user(
-        user_id=user.id,
-        username=user.username,
-        first_name=user.first_name,
-        last_name=user.last_name,
-    )
+    print(f"[STEPS] steps_count={steps_count} MIN_STEPS={MIN_STEPS} достаточно={steps_count >= MIN_STEPS}")
 
-    if db.is_jailed(user.id, "steps"):
+    try:
+        db.upsert_user(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            last_name=user.last_name,
+        )
+    except Exception as e:
+        print(f"[STEPS] ОШИБКА upsert_user: {e}")
+        raise
+
+    try:
+        jailed = db.is_jailed(user.id, "steps")
+    except Exception as e:
+        print(f"[STEPS] ОШИБКА is_jailed: {e}")
+        raise
+
+    if jailed:
+        print(f"[STEPS] user {user.id} в карцере")
         await message.reply_text(msg.get(msg.JAILED_TRY))
         return
 
     today = get_moscow_date()
-    if db.is_activity_recorded(user.id, "steps", today):
+
+    try:
+        already = db.is_activity_recorded(user.id, "steps", today)
+    except Exception as e:
+        print(f"[STEPS] ОШИБКА is_activity_recorded: {e}")
+        raise
+
+    if already:
+        print(f"[STEPS] user {user.id} уже записан за {today}")
         await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_STEPS))
         return
 
     if steps_count < MIN_STEPS:
+        print(f"[STEPS] steps_count={steps_count} < MIN_STEPS={MIN_STEPS} — мало шагов")
         await message.reply_text(msg.get(msg.TOO_FEW_STEPS))
         return
 
-    db.record_steps(user.id, today, steps_count)
+    print(f"[STEPS] записываем активность: user={user.id} date={today} steps={steps_count}")
 
-    xp_earned = steps_count // 500
-    db.add_xp(user.id, xp_earned)
-    db.add_total_steps(user.id, steps_count)
+    try:
+        db.record_steps(user.id, today, steps_count)
+    except Exception as e:
+        print(f"[STEPS] ОШИБКА record_steps: {e}")
+        raise
+
+    print(f"[STEPS] запись успешна, начисляем XP")
+
+    try:
+        xp_earned = steps_count // 500
+        db.add_xp(user.id, xp_earned)
+        db.add_total_steps(user.id, steps_count)
+    except Exception as e:
+        print(f"[STEPS] ОШИБКА add_xp/add_total_steps (запись в activities уже сохранена): {e}")
 
     await message.reply_text(msg.get(msg.STEPS_ACCEPTED))
 
