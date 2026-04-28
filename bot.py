@@ -44,6 +44,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start", cmd_help))
 
     app.add_handler(activity.build_handler())
+    app.add_handler(activity.build_edited_handler())
 
     for handler in report.build_handlers():
         app.add_handler(handler)

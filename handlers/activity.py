@@ -1,4 +1,5 @@
 import datetime
+import re
 import pytz
 
 from telegram import Update
@@ -16,6 +17,14 @@ MIN_STEPS = 10_000
 
 def _has_plus_one(text: str | None) -> bool:
     return "+1" in (text or "").upper()
+
+
+def _extract_number_from_text(text: str | None) -> int | None:
+    if not text:
+        return None
+    normalized = re.sub(r'(\d)\s+(\d)', r'\1\2', text)
+    numbers = [int(m) for m in re.findall(r'\d+', normalized)]
+    return max(numbers) if numbers else None
 
 
 async def _update_pinned_leaderboard(context: ContextTypes.DEFAULT_TYPE, activity_type: str) -> None:
@@ -65,15 +74,28 @@ async def _handle_steps(message, user, context) -> None:
         print(f"[STEPS] ERROR downloading photo: {e}")
         raise
 
-    steps_count = gemini.recognize_steps(image_bytes)
-    print(f"[STEPS] user={user.id} steps_count={steps_count}")
+    gemini_steps = gemini.recognize_steps(image_bytes)
+    print(f"[STEPS] user={user.id} gemini_steps={gemini_steps}")
 
-    if steps_count is None:
-        print("[STEPS] Gemini did not recognize steps")
-        await message.reply_text(msg.get(msg.STEPS_NOT_RECOGNIZED))
+    if gemini_steps is not None and gemini_steps >= MIN_STEPS:
+        steps_count = gemini_steps
+        print(f"[STEPS] using Gemini result: {steps_count}")
+    elif gemini_steps is None:
+        text = ((message.caption or "") + " " + (message.text or "")).strip() or None
+        steps_count = _extract_number_from_text(text)
+        print(f"[STEPS] Gemini returned None, text fallback steps_count={steps_count}")
+        if steps_count is None:
+            print("[STEPS] no number in text, sending STEPS_NOT_RECOGNIZED")
+            await message.reply_text(msg.get(msg.STEPS_NOT_RECOGNIZED))
+            return
+        if steps_count < MIN_STEPS:
+            print(f"[STEPS] text steps {steps_count} < MIN_STEPS")
+            await message.reply_text(msg.get(msg.TOO_FEW_STEPS))
+            return
+    else:
+        print(f"[STEPS] gemini_steps={gemini_steps} < MIN_STEPS={MIN_STEPS}")
+        await message.reply_text(msg.get(msg.TOO_FEW_STEPS))
         return
-
-    print(f"[STEPS] steps_count={steps_count} MIN_STEPS={MIN_STEPS} enough={steps_count >= MIN_STEPS}")
 
     try:
         db.upsert_user(
@@ -108,11 +130,6 @@ async def _handle_steps(message, user, context) -> None:
     if already:
         print(f"[STEPS] user {user.id} already recorded for {today}")
         await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_STEPS))
-        return
-
-    if steps_count < MIN_STEPS:
-        print(f"[STEPS] steps_count={steps_count} < MIN_STEPS={MIN_STEPS}")
-        await message.reply_text(msg.get(msg.TOO_FEW_STEPS))
         return
 
     print(f"[STEPS] recording: user={user.id} date={today} steps={steps_count}")
@@ -199,5 +216,12 @@ async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 def build_handler() -> MessageHandler:
     return MessageHandler(
         filters.Chat(GROUP_ID) & (filters.PHOTO | filters.VIDEO) & ~filters.COMMAND,
+        handle_activity,
+    )
+
+
+def build_edited_handler() -> MessageHandler:
+    return MessageHandler(
+        filters.UpdateType.EDITED_MESSAGE & filters.Chat(GROUP_ID) & (filters.PHOTO | filters.VIDEO) & ~filters.COMMAND,
         handle_activity,
     )
