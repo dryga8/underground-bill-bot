@@ -18,8 +18,13 @@ def _has_plus_one(text: str | None) -> bool:
 
 async def _update_pinned_leaderboard(context: ContextTypes.DEFAULT_TYPE, activity_type: str) -> None:
     """Редактирует закреплённое сообщение с актуальным лидербордом."""
+    print(f"[PINNED_UPDATE] activity_type={activity_type!r}  PINNED_STEPS_MESSAGE_ID={PINNED_STEPS_MESSAGE_ID}  PINNED_EXERCISE_MESSAGE_ID={PINNED_EXERCISE_MESSAGE_ID}")
+
     pinned_id = PINNED_STEPS_MESSAGE_ID if activity_type == "steps" else PINNED_EXERCISE_MESSAGE_ID
+    print(f"[PINNED_UPDATE] выбран pinned_id={pinned_id}")
+
     if not pinned_id:
+        print("[PINNED_UPDATE] pinned_id=0, пропускаем")
         return
 
     from handlers.stats import build_activity_leaderboard
@@ -36,6 +41,7 @@ async def _update_pinned_leaderboard(context: ContextTypes.DEFAULT_TYPE, activit
     leaderboard = build_activity_leaderboard(activity_type, month, year)
 
     text = f"{icon} {month_label}\n\n{leaderboard}"
+    print(f"[PINNED_UPDATE] вызываем edit_message_text chat_id={GROUP_ID}  message_id={pinned_id}")
     try:
         await context.bot.edit_message_text(
             chat_id=GROUP_ID,
@@ -43,8 +49,9 @@ async def _update_pinned_leaderboard(context: ContextTypes.DEFAULT_TYPE, activit
             text=text,
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+        print("[PINNED_UPDATE] успешно обновлено")
+    except Exception as e:
+        print(f"[PINNED_UPDATE] ошибка: {e}")
 
 
 async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
