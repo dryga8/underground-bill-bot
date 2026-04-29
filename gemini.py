@@ -5,7 +5,7 @@ import requests
 
 from config import GEMINI_API_KEY
 
-_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 _PROMPT = (
     "Look at this screenshot from a fitness/health app. "
