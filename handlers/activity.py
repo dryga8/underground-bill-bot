@@ -6,7 +6,6 @@ from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters
 
 import database as db
-import gemini
 import messages as msg
 from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, PINNED_STEPS_MESSAGE_ID, PINNED_EXERCISE_MESSAGE_ID
 from utils import get_moscow_date, fmt_number
@@ -65,94 +64,49 @@ async def _update_pinned_leaderboard(context: ContextTypes.DEFAULT_TYPE, activit
 
 
 async def _handle_steps(message, user, context) -> None:
-    print(f"[STEPS] user={user.id} downloading photo for Gemini")
+    text = ((message.caption or "") + " " + (message.text or "")).strip() or None
+    steps_count = _extract_number_from_text(text)
+    print(f"[STEPS] user={user.id} extracted steps_count={steps_count} from text={repr(text)}")
 
-    try:
-        tg_file = await context.bot.get_file(message.photo[-1].file_id)
-        image_bytes = bytes(await tg_file.download_as_bytearray())
-    except Exception as e:
-        print(f"[STEPS] ERROR downloading photo: {e}")
-        raise
-
-    gemini_steps = gemini.recognize_steps(image_bytes)
-    print(f"[STEPS] user={user.id} gemini_steps={gemini_steps}")
-
-    if gemini_steps is not None and gemini_steps >= MIN_STEPS:
-        steps_count = gemini_steps
-        print(f"[STEPS] using Gemini result: {steps_count}")
-    elif gemini_steps is None:
-        text = ((message.caption or "") + " " + (message.text or "")).strip() or None
-        steps_count = _extract_number_from_text(text)
-        print(f"[STEPS] Gemini returned None, text fallback steps_count={steps_count}")
-        if steps_count is None:
-            print("[STEPS] no number in text, sending STEPS_NOT_RECOGNIZED")
-            await message.reply_text(msg.get(msg.STEPS_NOT_RECOGNIZED))
-            return
-        if steps_count < MIN_STEPS:
-            print(f"[STEPS] text steps {steps_count} < MIN_STEPS")
-            await message.reply_text(msg.get(msg.TOO_FEW_STEPS))
-            return
-    else:
-        print(f"[STEPS] gemini_steps={gemini_steps} < MIN_STEPS={MIN_STEPS}")
+    if steps_count is None:
+        await message.reply_text(msg.get(msg.STEPS_NOT_RECOGNIZED))
+        return
+    if steps_count < MIN_STEPS:
         await message.reply_text(msg.get(msg.TOO_FEW_STEPS))
         return
 
-    try:
-        db.upsert_user(
-            user_id=user.id,
-            username=user.username,
-            first_name=user.first_name,
-            last_name=user.last_name,
-        )
-    except Exception as e:
-        print(f"[STEPS] ERROR upsert_user: {e}")
-        raise
+    db.upsert_user(
+        user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+    )
 
-    try:
-        jailed = db.is_jailed(user.id, "steps")
-    except Exception as e:
-        print(f"[STEPS] ERROR is_jailed: {e}")
-        raise
-
-    if jailed:
+    if db.is_jailed(user.id, "steps"):
         print(f"[STEPS] user {user.id} is jailed")
         await message.reply_text(msg.get(msg.JAILED_TRY))
         return
 
     today = get_moscow_date()
-
-    try:
-        already = db.is_activity_recorded(user.id, "steps", today)
-    except Exception as e:
-        print(f"[STEPS] ERROR is_activity_recorded: {e}")
-        raise
-
-    if already:
+    if db.is_activity_recorded(user.id, "steps", today):
         print(f"[STEPS] user {user.id} already recorded for {today}")
         await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_STEPS))
         return
 
     print(f"[STEPS] recording: user={user.id} date={today} steps={steps_count}")
-
-    try:
-        db.record_steps(user.id, today, steps_count)
-    except Exception as e:
-        print(f"[STEPS] ERROR record_steps: {e}")
-        raise
-
-    print(f"[STEPS] recorded, adding XP")
+    db.record_steps(user.id, today, steps_count)
 
     try:
         xp_earned = steps_count // 500
         db.add_xp(user.id, xp_earned)
         db.add_total_steps(user.id, steps_count)
+        print(f"[STEPS] xp_earned={xp_earned} total_steps updated")
     except Exception as e:
         print(f"[STEPS] ERROR add_xp/add_total_steps (activity already saved): {e}")
 
     reply = f"Билл насчитал {fmt_number(steps_count)} шагов. " + msg.get(msg.STEPS_ACCEPTED)
     await message.reply_text(reply)
 
-    print(f"[PINNED] activity_type='steps'  PINNED_STEPS_MESSAGE_ID={PINNED_STEPS_MESSAGE_ID}")
     await _update_pinned_leaderboard(context, "steps")
 
 

@@ -251,9 +251,11 @@ def add_xp(user_id: int, xp: int) -> int:
     if existing.data:
         new_total = (existing.data[0]["total_xp"] or 0) + xp
         _client.table("xp").update({"total_xp": new_total}).eq("user_id", user_id).execute()
+        print(f"[DB] add_xp user={user_id} updated total_xp={new_total}")
     else:
         new_total = xp
-        _client.table("xp").insert({"user_id": user_id, "total_xp": new_total}).execute()
+        _client.table("xp").upsert({"user_id": user_id, "total_xp": new_total}).execute()
+        print(f"[DB] add_xp user={user_id} inserted total_xp={new_total}")
     return new_total
 
 
@@ -270,9 +272,12 @@ def add_total_steps(user_id: int, steps: int) -> None:
     existing = _client.table("total_steps").select("all_time_steps").eq("user_id", user_id).limit(1).execute()
     if existing.data:
         current = existing.data[0]["all_time_steps"] or 0
-        _client.table("total_steps").update({"all_time_steps": current + steps}).eq("user_id", user_id).execute()
+        new_total = current + steps
+        _client.table("total_steps").update({"all_time_steps": new_total}).eq("user_id", user_id).execute()
+        print(f"[DB] add_total_steps user={user_id} updated all_time_steps={new_total}")
     else:
-        _client.table("total_steps").insert({"user_id": user_id, "all_time_steps": steps}).execute()
+        _client.table("total_steps").upsert({"user_id": user_id, "all_time_steps": steps}).execute()
+        print(f"[DB] add_total_steps user={user_id} inserted all_time_steps={steps}")
 
 
 # ---------------------------------------------------------------------------

@@ -13,4 +13,5 @@ EXERCISE_THREAD_ID = int(os.environ["EXERCISE_THREAD_ID"])
 
 PINNED_STEPS_MESSAGE_ID = int(os.getenv("PINNED_STEPS_MESSAGE_ID", "0"))
 PINNED_EXERCISE_MESSAGE_ID = int(os.getenv("PINNED_EXERCISE_MESSAGE_ID", "0"))
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+_news_thread = os.getenv("NEWS_THREAD_ID", "")
+NEWS_THREAD_ID: int | None = int(_news_thread) if _news_thread else None

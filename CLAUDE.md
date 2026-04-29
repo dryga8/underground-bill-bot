@@ -26,10 +26,11 @@ diaverse-bot/
 ├── utils.py             # вспомогательные функции
 ├── handlers/
 │   ├── __init__.py
-│   ├── activity.py      # обработка +1 сообщений
+│   ├── activity.py      # обработка активностей (шаги/зарядка)
 │   ├── report.py        # жалобы и голосование
 │   ├── stats.py         # /stats и /top
-│   └── admin.py         # /addadmin, /pardon, /reset
+│   ├── admin.py         # /addadmin, /pardon, /reset
+│   └── welcome.py       # приветствие новых участников
 ├── schema.sql           # SQL схема для Supabase
 ├── requirements.txt
 ├── .env.example
@@ -46,6 +47,7 @@ OWNER_ID=              # Telegram user_id хозяйки бота
 GROUP_ID=              # ID супергруппы (отрицательный)
 STEPS_THREAD_ID=       # ID топика "шаги" в супергруппе
 EXERCISE_THREAD_ID=    # ID топика "зарядка" в супергруппе
+NEWS_THREAD_ID=        # ID топика для приветствий (опционально, если пусто — основной чат)
 ```
 
 ## База данных (schema.sql)
@@ -125,21 +127,24 @@ CREATE INDEX idx_reports_status ON reports(status);
 
 **Шаги** (топик STEPS_THREAD_ID):
 - Сообщение содержит ФОТО (скриншот)
-- Текст сообщения содержит "+1" (регистронезависимо)
+- Текст/подпись содержит число >= 10 000 (пробелы внутри числа нормализуются: "10 500" → 10500)
+- Если числа нет → STEPS_NOT_RECOGNIZED; если число < 10 000 → TOO_FEW_STEPS
+- После записи начисляется XP (steps_count // 500) и обновляется total_steps
 
 **Зарядка** (топик EXERCISE_THREAD_ID):
 - Сообщение содержит ВИДЕО
 - Текст сообщения содержит "+1" (регистронезависимо)
 
-**Алгоритм:**
-1. Определить тип активности по thread_id
-2. Проверить наличие вложения (фото/видео)
-3. Проверить наличие "+1" в тексте
-4. Сохранить/обновить пользователя в БД (upsert)
-5. Проверить карцер → если в карцере: ответить фразой JAILED_TRY
-6. Проверить уже есть запись сегодня (МСК) → если есть: ответить фразой ALREADY_SUBMITTED_{TYPE}
-7. Записать активность в БД
-8. Ответить случайной фразой из STEPS_ACCEPTED или EXERCISE_ACCEPTED
+**Алгоритм для шагов:**
+1. Извлечь максимальное число из текста/caption
+2. Если нет числа → STEPS_NOT_RECOGNIZED
+3. Если число < 10 000 → TOO_FEW_STEPS
+4. Upsert пользователя в БД
+5. Проверить карцер → JAILED_TRY
+6. Проверить дубль сегодня → ALREADY_SUBMITTED_STEPS
+7. Записать в activities (record_steps с steps_count)
+8. Начислить XP в таблицу xp, обновить total_steps в таблице total_steps
+9. Ответить фразой STEPS_ACCEPTED с числом шагов
 
 **Важно:**
 - Дата определяется по МСК (Europe/Moscow)
@@ -214,6 +219,14 @@ CREATE INDEX idx_reports_status ON reports(status);
 Использовать моноширинный шрифт (`<pre>` тег) для выравнивания колонок.
 parse_mode=HTML.
 
+### Приветствие новых участников (handlers/welcome.py)
+
+При вступлении нового пользователя в группу:
+1. Бот отправляет случайное приветствие из `WELCOME_MESSAGES` с тегом пользователя (`mention_html()`)
+2. Сообщение отправляется в NEWS_THREAD_ID (если задан) или в основной чат
+3. Через 3 минуты сообщение автоматически удаляется через `job_queue.run_once`
+4. Боты игнорируются (is_bot check)
+
 ### Админ-команды (handlers/admin.py)
 
 **`/addadmin @username`** — только OWNER_ID:
@@ -243,7 +256,7 @@ def pluralize_days(n: int) -> str:
     """1 день / 2 дня / 5 дней — правильные падежи"""
 
 def get_display_name(user: dict) -> str:
-    """Имя Фамилия или @username или 'Неизвестный боец'"""
+    """Имя Фамилия (приоритет) или username без @ или 'Неизвестный боец'"""
 ```
 
 ## Фразы бота (messages.py)
@@ -652,7 +665,9 @@ RESET_ANNOUNCEMENT = """📣 Внимание, бойцы Сопротивлен
 7. **Один репорт на сообщение**: нельзя подать жалобу на сообщение если по нему уже открыто голосование
 8. **Жалоба только в тот же день**: message_date (из Telegram) должна совпадать с текущей датой по МСК
 9. **Лидерборд**: пустые строки (0 дней) тоже показываем если пользователь есть в таблице activities за месяц. Сортировка по алфавиту display_name.
-10. **display_name**: first_name + last_name если есть, иначе @username, иначе "Неизвестный боец"
+10. **display_name**: first_name + last_name если есть, иначе username (без @), иначе "Неизвестный боец"
+11. **XP**: начисляется за шаги = steps_count // 500. Хранится в таблице `xp` (user_id, total_xp). Upsert через select+update или upsert.
+12. **total_steps**: накопительные шаги за всё время. Хранится в таблице `total_steps` (user_id, all_time_steps). Upsert аналогично.
 
 ## Деплой на Railway
 

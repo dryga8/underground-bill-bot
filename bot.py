@@ -5,8 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 import messages as msg
 from config import BOT_TOKEN, GROUP_ID
-from gemini import list_models
-from handlers import activity, report, stats, admin
+from handlers import activity, report, stats, admin, welcome
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -34,8 +33,6 @@ async def cmd_help(update: Update, _) -> None:
 def main() -> None:
     import os
     print(f"[ENV] все ключи окружения: {sorted(os.environ.keys())}")
-    print(f"[ENV] GEMINI_API_KEY присутствует: {'GEMINI_API_KEY' in os.environ}")
-    list_models()
 
     app = Application.builder().token(BOT_TOKEN).build()
 
@@ -56,6 +53,8 @@ def main() -> None:
 
     for handler in admin.build_handlers():
         app.add_handler(handler)
+
+    app.add_handler(welcome.build_handler())
 
     app.add_error_handler(error_handler)
 
