@@ -5,6 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 import messages as msg
 from config import BOT_TOKEN, GROUP_ID
+from gemini import list_models
 from handlers import activity, report, stats, admin
 
 logging.basicConfig(
@@ -34,6 +35,7 @@ def main() -> None:
     import os
     print(f"[ENV] все ключи окружения: {sorted(os.environ.keys())}")
     print(f"[ENV] GEMINI_API_KEY присутствует: {'GEMINI_API_KEY' in os.environ}")
+    list_models()
 
     app = Application.builder().token(BOT_TOKEN).build()
 

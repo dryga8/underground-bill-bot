@@ -15,6 +15,28 @@ _PROMPT = (
 )
 
 
+def list_models() -> None:
+    """Логирует список доступных Gemini моделей — вызывать при старте для диагностики."""
+    print(f"[GEMINI] запрос списка моделей, ключ={'установлен' if GEMINI_API_KEY else 'ПУСТОЙ'}")
+    try:
+        resp = requests.get(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            params={"key": GEMINI_API_KEY},
+            timeout=15,
+        )
+        print(f"[GEMINI] list_models HTTP {resp.status_code}")
+        if resp.status_code != 200:
+            print(f"[GEMINI] list_models ОШИБКА — тело ответа:\n{resp.text[:4000]}")
+            return
+        models = resp.json().get("models", [])
+        names = [m.get("name", "?") for m in models]
+        print(f"[GEMINI] доступные модели ({len(names)}):")
+        for name in names:
+            print(f"[GEMINI]   {name}")
+    except Exception as e:
+        print(f"[GEMINI] list_models ошибка: {type(e).__name__}: {e}")
+
+
 def recognize_steps(image_bytes: bytes) -> int | None:
     """Распознаёт число шагов на скриншоте через Gemini REST API. Возвращает None если не распознано."""
     print(f"[GEMINI] вызов API, размер изображения={len(image_bytes)} байт, ключ={'установлен' if GEMINI_API_KEY else 'ПУСТОЙ'}")
