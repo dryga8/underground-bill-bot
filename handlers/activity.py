@@ -8,7 +8,8 @@ from telegram.ext import ContextTypes, MessageHandler, filters
 import database as db
 import messages as msg
 from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, PINNED_STEPS_MESSAGE_ID, PINNED_EXERCISE_MESSAGE_ID
-from utils import get_moscow_date, fmt_number
+from utils import get_moscow_date, fmt_number, get_display_name
+from handlers.common import send_level_up_notifications
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 MIN_STEPS = 10_000
@@ -97,13 +98,16 @@ async def _handle_steps(message, user, context) -> None:
     db.record_steps(user.id, today, steps_count)
     print(f"[STEPS] record_steps done, now calling add_xp / add_total_steps")
 
+    rewards = []
     try:
-        xp_earned = steps_count // 500
+        xp_earned = min(steps_count // 500, 40)
         print(f"[STEPS] calling add_xp(user_id={user.id}, xp={xp_earned})")
-        db.add_xp(user.id, xp_earned)
+        old_xp = db.get_user_xp(user.id)
+        new_xp = db.add_xp(user.id, xp_earned)
         print(f"[STEPS] calling add_total_steps(user_id={user.id}, steps={steps_count})")
         db.add_total_steps(user.id, steps_count)
         print(f"[STEPS] add_xp and add_total_steps completed successfully")
+        rewards = db.check_and_award_level(user.id, old_xp, new_xp)
     except Exception as e:
         import traceback as tb
         print(f"[STEPS] ERROR in add_xp/add_total_steps: {type(e).__name__}: {e}")
@@ -111,6 +115,11 @@ async def _handle_steps(message, user, context) -> None:
 
     reply = f"Билл насчитал {fmt_number(steps_count)} шагов. " + msg.get(msg.STEPS_ACCEPTED)
     await message.reply_text(reply)
+
+    if rewards:
+        name = get_display_name({"user_id": user.id, "username": user.username,
+                                  "first_name": user.first_name, "last_name": user.last_name})
+        await send_level_up_notifications(context, name, rewards)
 
     await _update_pinned_leaderboard(context, "steps")
 

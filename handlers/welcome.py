@@ -24,6 +24,11 @@ async def handle_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not chat or chat.id != GROUP_ID:
         return
 
+    try:
+        await message.delete()
+    except Exception as e:
+        print(f"[WELCOME] не удалось удалить системное сообщение: {e}")
+
     for member in message.new_chat_members:
         if member.is_bot:
             continue

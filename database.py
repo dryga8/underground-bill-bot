@@ -436,3 +436,70 @@ def is_admin(user_id: int) -> bool:
 
 def add_admin(user_id: int, added_by: int) -> None:
     _client.table("admins").upsert({"user_id": user_id, "added_by": added_by}).execute()
+
+
+# ---------------------------------------------------------------------------
+# Steps (admin override)
+# ---------------------------------------------------------------------------
+
+def set_steps_for_date(user_id: int, activity_date, steps_count: int) -> bool:
+    """Insert or update steps for a given date. Returns True if new record was created."""
+    existing = (
+        _client.table("activities")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("activity_type", "steps")
+        .eq("activity_date", activity_date.isoformat())
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        _client.table("activities").update({"steps_count": steps_count}).eq("id", existing.data[0]["id"]).execute()
+        return False
+    else:
+        _client.table("activities").insert({
+            "user_id": user_id,
+            "activity_type": "steps",
+            "activity_date": activity_date.isoformat(),
+            "month": activity_date.month,
+            "year": activity_date.year,
+            "steps_count": steps_count,
+        }).execute()
+        return True
+
+
+# ---------------------------------------------------------------------------
+# Rewards
+# ---------------------------------------------------------------------------
+
+def add_reward(user_id: int, level: int, reward: str) -> None:
+    _client.table("rewards").insert({
+        "user_id": user_id,
+        "level": level,
+        "reward": reward,
+    }).execute()
+
+
+def get_user_rewards(user_id: int) -> list[dict]:
+    res = (
+        _client.table("rewards")
+        .select("level, reward")
+        .eq("user_id", user_id)
+        .order("level")
+        .execute()
+    )
+    return res.data
+
+
+def check_and_award_level(user_id: int, old_xp: int, new_xp: int) -> list[tuple[int, str]]:
+    """Award titles for each level crossed. Returns list of (level, reward) tuples."""
+    import messages as msg
+    old_level = get_level(old_xp)
+    new_level = get_level(new_xp)
+    awarded = []
+    for level in range(old_level + 1, new_level + 1):
+        if level in msg.REWARDS:
+            reward = msg.get(msg.REWARDS[level])
+            add_reward(user_id, level, reward)
+            awarded.append((level, reward))
+    return awarded

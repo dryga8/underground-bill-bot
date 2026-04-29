@@ -106,6 +106,12 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     monthly_steps_str = "🚫" if steps_jailed else fmt_number(monthly_steps)
 
+    rewards = db.get_user_rewards(uid)
+    rewards_str = ""
+    if rewards:
+        titles = ", ".join(f"{r['reward']} (ур. {r['level']})" for r in rewards)
+        rewards_str = f"\n🎖 Звания: {titles}"
+
     text = (
         f"{msg.get(msg.STATS_HEADER)}\n\n"
         f"🗂 Досье пирата: <b>{display}</b>\n\n"
@@ -115,6 +121,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"👟 Шагов за месяц: {monthly_steps_str}\n"
         f"👟 Шагов всего: {fmt_number(total_steps)}\n"
         f"⭐ XP: {fmt_number(xp)} (Уровень {level})"
+        f"{rewards_str}"
     )
     await message.reply_text(text, parse_mode="HTML")
 

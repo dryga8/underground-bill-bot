@@ -8,7 +8,8 @@ import database as db
 import messages as msg
 from config import OWNER_ID
 from database import get_level
-from utils import get_display_name
+from utils import get_display_name, get_moscow_date
+from handlers.common import send_level_up_notifications
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 
@@ -220,6 +221,7 @@ async def cmd_addxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text(f"Боец @{username} в архивах не найден.")
         return
 
+    old_xp = db.get_user_xp(target["user_id"])
     new_total = db.add_xp(target["user_id"], xp_amount)
     level = db.get_level(new_total)
     display = get_display_name(target)
@@ -231,6 +233,64 @@ async def cmd_addxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode="HTML",
     )
 
+    if xp_amount > 0:
+        rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
+        if rewards:
+            await send_level_up_notifications(context, display, rewards)
+
+
+async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    caller = update.effective_user
+    if not caller or not _is_privileged(caller.id):
+        await message.reply_text("Недостаточно полномочий. Это для командования.")
+        return
+
+    if not context.args or len(context.args) < 2:
+        await message.reply_text("Формат: /addsteps @username 12500")
+        return
+
+    username = context.args[0].lstrip("@")
+    try:
+        steps_count = int(context.args[1])
+    except ValueError:
+        await message.reply_text("Количество шагов должно быть числом.")
+        return
+
+    if steps_count <= 0:
+        await message.reply_text("Количество шагов должно быть положительным числом.")
+        return
+
+    target = db.get_user_by_username(username)
+    if not target:
+        await message.reply_text(f"Боец @{username} в архивах не найден.")
+        return
+
+    today = get_moscow_date()
+    db.set_steps_for_date(target["user_id"], today, steps_count)
+    db.add_total_steps(target["user_id"], steps_count)
+
+    xp_earned = min(steps_count // 500, 40)
+    old_xp = db.get_user_xp(target["user_id"])
+    new_total = db.add_xp(target["user_id"], xp_earned)
+    level = db.get_level(new_total)
+    display = get_display_name(target)
+
+    from utils import fmt_number
+    await message.reply_text(
+        f"{msg.get(msg.DAYS_ADDED)}\n\n"
+        f"<b>{display}</b> — {fmt_number(steps_count)} шагов за сегодня. "
+        f"+{xp_earned} XP → {fmt_number(new_total)} XP (Уровень {level}).",
+        parse_mode="HTML",
+    )
+
+    rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
+    if rewards:
+        await send_level_up_notifications(context, display, rewards)
+
 
 def build_handlers():
     return [
@@ -240,4 +300,5 @@ def build_handlers():
         CommandHandler("adddays", cmd_adddays),
         CommandHandler("removedays", cmd_removedays),
         CommandHandler("addxp", cmd_addxp),
+        CommandHandler("addsteps", cmd_addsteps),
     ]
