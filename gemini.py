@@ -39,48 +39,50 @@ def list_models() -> None:
 
 def recognize_steps(image_bytes: bytes) -> int | None:
     """Распознаёт число шагов на скриншоте через Gemini REST API. Возвращает None если не распознано."""
+    print("[GEMINI] recognize_steps вызвана")
     print(f"[GEMINI] вызов API, размер изображения={len(image_bytes)} байт, ключ={'установлен' if GEMINI_API_KEY else 'ПУСТОЙ'}")
     try:
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "inline_data": {
-                                "mime_type": "image/jpeg",
-                                "data": base64.b64encode(image_bytes).decode("utf-8"),
-                            }
-                        },
-                        {"text": _PROMPT},
-                    ]
-                }
-            ]
-        }
-        resp = requests.post(
-            _URL,
-            params={"key": GEMINI_API_KEY},
-            json=payload,
-            timeout=30,
-        )
-        masked_url = resp.url.replace(GEMINI_API_KEY, "***") if GEMINI_API_KEY else resp.url
-        print(f"[GEMINI] HTTP {resp.status_code} | URL: {masked_url}")
-        if resp.status_code != 200:
-            print(f"[GEMINI] ОШИБКА {resp.status_code} — полное тело ответа (начало):")
-            print(resp.text[:4000])
-            if len(resp.text) > 4000:
-                print(f"[GEMINI] ...ответ обрезан, полная длина: {len(resp.text)} символов")
+        try:
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "inline_data": {
+                                    "mime_type": "image/jpeg",
+                                    "data": base64.b64encode(image_bytes).decode("utf-8"),
+                                }
+                            },
+                            {"text": _PROMPT},
+                        ]
+                    }
+                ]
+            }
+            resp = requests.post(
+                _URL,
+                params={"key": GEMINI_API_KEY},
+                json=payload,
+                timeout=30,
+            )
+            masked_url = resp.url.replace(GEMINI_API_KEY, "***") if GEMINI_API_KEY else resp.url
+            print(f"[GEMINI] HTTP {resp.status_code} | URL: {masked_url}")
+            if resp.status_code != 200:
+                print(f"[GEMINI] ОШИБКА {resp.status_code} — полное тело ответа (начало):")
+                print(resp.text[:4000])
+                if len(resp.text) > 4000:
+                    print(f"[GEMINI] ...ответ обрезан, полная длина: {len(resp.text)} символов")
+                return None
+            data = resp.json()
+            raw = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            print(f"[GEMINI] текст ответа: {repr(raw)}")
+            digits = "".join(filter(str.isdigit, raw))
+            num = int(digits) if digits else 0
+            print(f"[GEMINI] распознано шагов: {num}")
+            return num if num >= 1 else None
+        except Exception as e:
+            print(f"[GEMINI] НЕОБРАБОТАННОЕ ИСКЛЮЧЕНИЕ в recognize_steps: {type(e).__name__}: {e}")
+            traceback.print_exc()
             return None
-        data = resp.json()
-        raw = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        print(f"[GEMINI] текст ответа: {repr(raw)}")
-        digits = "".join(filter(str.isdigit, raw))
-        num = int(digits) if digits else 0
-        print(f"[GEMINI] распознано шагов: {num}")
-        return num if num >= 1 else None
-    except (ValueError, KeyError, IndexError) as e:
-        print(f"[GEMINI] не удалось распарсить ответ: {type(e).__name__}: {e}")
-        return None
     except Exception as e:
-        print(f"[GEMINI] ошибка: {type(e).__name__}: {e}")
-        traceback.print_exc()
+        print(f"[GEMINI] КРИТИЧЕСКАЯ ОШИБКА (даже traceback упал): {e}")
         return None
