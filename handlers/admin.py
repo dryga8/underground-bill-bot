@@ -211,8 +211,8 @@ async def cmd_addxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await message.reply_text("XP должен быть числом.")
         return
 
-    if xp_amount <= 0:
-        await message.reply_text("XP должен быть положительным числом.")
+    if xp_amount == 0:
+        await message.reply_text("XP должен быть ненулевым числом.")
         return
 
     target = db.get_user_by_username(username)
@@ -223,10 +223,11 @@ async def cmd_addxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     new_total = db.add_xp(target["user_id"], xp_amount)
     level = db.get_level(new_total)
     display = get_display_name(target)
+    sign = "+" if xp_amount > 0 else ""
 
     await message.reply_text(
         f"{msg.get(msg.XP_ADDED)}\n\n"
-        f"<b>{display}</b> +{xp_amount} XP → {new_total} XP (Уровень {level}).",
+        f"<b>{display}</b> {sign}{xp_amount} XP → {new_total} XP (Уровень {level}).",
         parse_mode="HTML",
     )
 

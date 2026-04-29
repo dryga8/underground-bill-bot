@@ -246,18 +246,32 @@ def get_user_xp(user_id: int) -> int:
     return res.data[0]["total_xp"] if res.data else 0
 
 
+def get_xp_leaderboard() -> list[dict]:
+    """Все пользователи из таблицы xp, отсортированные по total_xp DESC."""
+    res = _client.table("xp").select("user_id, total_xp").order("total_xp", desc=True).execute()
+    result = []
+    for row in res.data:
+        user = get_user_by_id(row["user_id"])
+        if user:
+            result.append({"user": user, "total_xp": row["total_xp"] or 0})
+    return result
+
+
 def add_xp(user_id: int, xp: int) -> int:
     print(f"[DB:add_xp] START user={user_id} xp_to_add={xp}")
     try:
         existing = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
         print(f"[DB:add_xp] SELECT result: data={existing.data}")
         if existing.data:
-            new_total = (existing.data[0]["total_xp"] or 0) + xp
+            new_total = max(0, (existing.data[0]["total_xp"] or 0) + xp)
             print(f"[DB:add_xp] UPDATE user={user_id} total_xp={new_total}")
             res = _client.table("xp").update({"total_xp": new_total}).eq("user_id", user_id).execute()
             print(f"[DB:add_xp] UPDATE response: data={res.data}")
         else:
-            new_total = xp
+            new_total = max(0, xp)
+            if new_total == 0:
+                print(f"[DB:add_xp] no row and xp<=0, skipping insert")
+                return 0
             print(f"[DB:add_xp] UPSERT (new row) user={user_id} total_xp={new_total}")
             res = _client.table("xp").upsert({"user_id": user_id, "total_xp": new_total}).execute()
             print(f"[DB:add_xp] UPSERT response: data={res.data}")

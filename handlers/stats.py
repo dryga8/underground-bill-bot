@@ -155,9 +155,31 @@ async def cmd_topexercise(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     print(f"[TOPEXERCISE] chat_id={sent.chat_id}  message_id={sent.message_id}")
 
 
+async def cmd_topxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    rows = db.get_xp_leaderboard()
+    if not rows:
+        await message.reply_text("Пока никто не набрал XP. Шагайте, бойцы.")
+        return
+
+    lines = []
+    for r in rows:
+        name = get_display_name(r["user"])
+        xp = r["total_xp"]
+        level = db.get_level(xp)
+        lines.append(f"{name} — {fmt_number(xp)} XP (Уровень {level})")
+
+    text = f"{msg.get(msg.TOP_XP_HEADER)}\n\n" + "\n".join(lines)
+    await message.reply_text(text, parse_mode="HTML")
+
+
 def build_handlers():
     return [
         CommandHandler("stats", cmd_stats),
         CommandHandler("topsteps", cmd_topsteps),
         CommandHandler("topexercise", cmd_topexercise),
+        CommandHandler("topxp", cmd_topxp),
     ]
