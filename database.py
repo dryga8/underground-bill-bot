@@ -247,16 +247,27 @@ def get_user_xp(user_id: int) -> int:
 
 
 def add_xp(user_id: int, xp: int) -> int:
-    existing = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
-    if existing.data:
-        new_total = (existing.data[0]["total_xp"] or 0) + xp
-        _client.table("xp").update({"total_xp": new_total}).eq("user_id", user_id).execute()
-        print(f"[DB] add_xp user={user_id} updated total_xp={new_total}")
-    else:
-        new_total = xp
-        _client.table("xp").upsert({"user_id": user_id, "total_xp": new_total}).execute()
-        print(f"[DB] add_xp user={user_id} inserted total_xp={new_total}")
-    return new_total
+    print(f"[DB:add_xp] START user={user_id} xp_to_add={xp}")
+    try:
+        existing = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
+        print(f"[DB:add_xp] SELECT result: data={existing.data}")
+        if existing.data:
+            new_total = (existing.data[0]["total_xp"] or 0) + xp
+            print(f"[DB:add_xp] UPDATE user={user_id} total_xp={new_total}")
+            res = _client.table("xp").update({"total_xp": new_total}).eq("user_id", user_id).execute()
+            print(f"[DB:add_xp] UPDATE response: data={res.data}")
+        else:
+            new_total = xp
+            print(f"[DB:add_xp] UPSERT (new row) user={user_id} total_xp={new_total}")
+            res = _client.table("xp").upsert({"user_id": user_id, "total_xp": new_total}).execute()
+            print(f"[DB:add_xp] UPSERT response: data={res.data}")
+        print(f"[DB:add_xp] DONE user={user_id} new_total={new_total}")
+        return new_total
+    except Exception as e:
+        import traceback
+        print(f"[DB:add_xp] EXCEPTION: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -269,15 +280,26 @@ def get_total_steps(user_id: int) -> int:
 
 
 def add_total_steps(user_id: int, steps: int) -> None:
-    existing = _client.table("total_steps").select("all_time_steps").eq("user_id", user_id).limit(1).execute()
-    if existing.data:
-        current = existing.data[0]["all_time_steps"] or 0
-        new_total = current + steps
-        _client.table("total_steps").update({"all_time_steps": new_total}).eq("user_id", user_id).execute()
-        print(f"[DB] add_total_steps user={user_id} updated all_time_steps={new_total}")
-    else:
-        _client.table("total_steps").upsert({"user_id": user_id, "all_time_steps": steps}).execute()
-        print(f"[DB] add_total_steps user={user_id} inserted all_time_steps={steps}")
+    print(f"[DB:add_total_steps] START user={user_id} steps_to_add={steps}")
+    try:
+        existing = _client.table("total_steps").select("all_time_steps").eq("user_id", user_id).limit(1).execute()
+        print(f"[DB:add_total_steps] SELECT result: data={existing.data}")
+        if existing.data:
+            current = existing.data[0]["all_time_steps"] or 0
+            new_total = current + steps
+            print(f"[DB:add_total_steps] UPDATE user={user_id} all_time_steps={new_total}")
+            res = _client.table("total_steps").update({"all_time_steps": new_total}).eq("user_id", user_id).execute()
+            print(f"[DB:add_total_steps] UPDATE response: data={res.data}")
+        else:
+            print(f"[DB:add_total_steps] UPSERT (new row) user={user_id} all_time_steps={steps}")
+            res = _client.table("total_steps").upsert({"user_id": user_id, "all_time_steps": steps}).execute()
+            print(f"[DB:add_total_steps] UPSERT response: data={res.data}")
+        print(f"[DB:add_total_steps] DONE user={user_id}")
+    except Exception as e:
+        import traceback
+        print(f"[DB:add_total_steps] EXCEPTION: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        raise
 
 
 # ---------------------------------------------------------------------------

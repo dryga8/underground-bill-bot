@@ -95,14 +95,19 @@ async def _handle_steps(message, user, context) -> None:
 
     print(f"[STEPS] recording: user={user.id} date={today} steps={steps_count}")
     db.record_steps(user.id, today, steps_count)
+    print(f"[STEPS] record_steps done, now calling add_xp / add_total_steps")
 
     try:
         xp_earned = steps_count // 500
+        print(f"[STEPS] calling add_xp(user_id={user.id}, xp={xp_earned})")
         db.add_xp(user.id, xp_earned)
+        print(f"[STEPS] calling add_total_steps(user_id={user.id}, steps={steps_count})")
         db.add_total_steps(user.id, steps_count)
-        print(f"[STEPS] xp_earned={xp_earned} total_steps updated")
+        print(f"[STEPS] add_xp and add_total_steps completed successfully")
     except Exception as e:
-        print(f"[STEPS] ERROR add_xp/add_total_steps (activity already saved): {e}")
+        import traceback as tb
+        print(f"[STEPS] ERROR in add_xp/add_total_steps: {type(e).__name__}: {e}")
+        tb.print_exc()
 
     reply = f"Билл насчитал {fmt_number(steps_count)} шагов. " + msg.get(msg.STEPS_ACCEPTED)
     await message.reply_text(reply)
