@@ -40,9 +40,13 @@ def recognize_steps(image_bytes: bytes) -> int | None:
             json=payload,
             timeout=30,
         )
-        print(f"[GEMINI] HTTP {resp.status_code}")
+        masked_url = resp.url.replace(GEMINI_API_KEY, "***") if GEMINI_API_KEY else resp.url
+        print(f"[GEMINI] HTTP {resp.status_code} | URL: {masked_url}")
         if resp.status_code != 200:
-            print(f"[GEMINI] ошибка ответа: {resp.text}")
+            print(f"[GEMINI] ОШИБКА {resp.status_code} — полное тело ответа (начало):")
+            print(resp.text[:4000])
+            if len(resp.text) > 4000:
+                print(f"[GEMINI] ...ответ обрезан, полная длина: {len(resp.text)} символов")
             return None
         data = resp.json()
         raw = data["candidates"][0]["content"]["parts"][0]["text"].strip()
