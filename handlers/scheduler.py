@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 
 import database as db
 import messages as msg
-from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, NEWS_THREAD_ID
+from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, NEWS_THREAD_ID, SALO_THREAD_ID
 from utils import get_display_name, pluralize_days, fmt_number
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -103,7 +103,6 @@ async def monthly_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
     # Salo thread (optional)
-    from config import SALO_THREAD_ID
     if SALO_THREAD_ID:
         await _send(
             context,

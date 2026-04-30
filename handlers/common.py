@@ -1,5 +1,5 @@
 import messages as msg
-from config import GROUP_ID, NEWS_THREAD_ID
+from config import GROUP_ID
 
 _DELETE_AFTER_SECONDS = 120
 

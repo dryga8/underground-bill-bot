@@ -31,12 +31,12 @@ def fmt_number(n: int) -> str:
 
 
 def get_display_name(user: dict) -> str:
-    username = user.get("username")
-    if username:
-        return username
     first = (user.get("first_name") or "").strip()
     last = (user.get("last_name") or "").strip()
     name = f"{first} {last}".strip()
     if name:
         return name
+    username = user.get("username")
+    if username:
+        return username
     return "Неизвестный боец"

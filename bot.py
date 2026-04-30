@@ -26,12 +26,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     traceback.print_exc()
 
 
-async def debug_ids(update: Update, _) -> None:
-    m = update.effective_message
-    if m:
-        print(f"[DEBUG] chat_id={m.chat_id}  message_thread_id={m.message_thread_id}")
-
-
 _HELP_KEYBOARD = InlineKeyboardMarkup([
     [
         InlineKeyboardButton("🚶 Марафон шагов", callback_data="help:steps"),
@@ -108,15 +102,10 @@ async def cmd_admin(update: Update, _) -> None:
 
 
 def main() -> None:
-    import os
     import database as db
-    print(f"[ENV] все ключи окружения: {sorted(os.environ.keys())}")
     db.cleanup_old_rewards()
 
     app = Application.builder().token(BOT_TOKEN).build()
-
-    # TODO: убрать после получения ID топиков
-    app.add_handler(MessageHandler(filters.ALL, debug_ids), group=1)
 
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))

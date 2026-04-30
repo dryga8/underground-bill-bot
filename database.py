@@ -216,6 +216,8 @@ def add_days(user_id: int, activity_type: str, days: int, month: int, year: int)
                 "month": month,
                 "year": year,
             }).execute()
+            if activity_type == "exercise":
+                add_total_exercise_days(user_id)
             added += 1
     return added
 
@@ -260,30 +262,16 @@ def get_xp_leaderboard() -> list[dict]:
 
 
 def add_xp(user_id: int, xp: int) -> int:
-    print(f"[DB:add_xp] START user={user_id} xp_to_add={xp}")
-    try:
-        existing = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
-        print(f"[DB:add_xp] SELECT result: data={existing.data}")
-        if existing.data:
-            new_total = max(0, (existing.data[0]["total_xp"] or 0) + xp)
-            print(f"[DB:add_xp] UPDATE user={user_id} total_xp={new_total}")
-            res = _client.table("xp").update({"total_xp": new_total}).eq("user_id", user_id).execute()
-            print(f"[DB:add_xp] UPDATE response: data={res.data}")
-        else:
-            new_total = max(0, xp)
-            if new_total == 0:
-                print(f"[DB:add_xp] no row and xp<=0, skipping insert")
-                return 0
-            print(f"[DB:add_xp] UPSERT (new row) user={user_id} total_xp={new_total}")
-            res = _client.table("xp").upsert({"user_id": user_id, "total_xp": new_total}).execute()
-            print(f"[DB:add_xp] UPSERT response: data={res.data}")
-        print(f"[DB:add_xp] DONE user={user_id} new_total={new_total}")
-        return new_total
-    except Exception as e:
-        import traceback
-        print(f"[DB:add_xp] EXCEPTION: {type(e).__name__}: {e}")
-        traceback.print_exc()
-        raise
+    existing = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
+    if existing.data:
+        new_total = max(0, (existing.data[0]["total_xp"] or 0) + xp)
+        _client.table("xp").update({"total_xp": new_total}).eq("user_id", user_id).execute()
+    else:
+        new_total = max(0, xp)
+        if new_total == 0:
+            return 0
+        _client.table("xp").upsert({"user_id": user_id, "total_xp": new_total}).execute()
+    return new_total
 
 
 # ---------------------------------------------------------------------------
@@ -296,26 +284,12 @@ def get_total_steps(user_id: int) -> int:
 
 
 def add_total_steps(user_id: int, steps: int) -> None:
-    print(f"[DB:add_total_steps] START user={user_id} steps_to_add={steps}")
-    try:
-        existing = _client.table("total_steps").select("all_time_steps").eq("user_id", user_id).limit(1).execute()
-        print(f"[DB:add_total_steps] SELECT result: data={existing.data}")
-        if existing.data:
-            current = existing.data[0]["all_time_steps"] or 0
-            new_total = current + steps
-            print(f"[DB:add_total_steps] UPDATE user={user_id} all_time_steps={new_total}")
-            res = _client.table("total_steps").update({"all_time_steps": new_total}).eq("user_id", user_id).execute()
-            print(f"[DB:add_total_steps] UPDATE response: data={res.data}")
-        else:
-            print(f"[DB:add_total_steps] UPSERT (new row) user={user_id} all_time_steps={steps}")
-            res = _client.table("total_steps").upsert({"user_id": user_id, "all_time_steps": steps}).execute()
-            print(f"[DB:add_total_steps] UPSERT response: data={res.data}")
-        print(f"[DB:add_total_steps] DONE user={user_id}")
-    except Exception as e:
-        import traceback
-        print(f"[DB:add_total_steps] EXCEPTION: {type(e).__name__}: {e}")
-        traceback.print_exc()
-        raise
+    existing = _client.table("total_steps").select("all_time_steps").eq("user_id", user_id).limit(1).execute()
+    if existing.data:
+        new_total = (existing.data[0]["all_time_steps"] or 0) + steps
+        _client.table("total_steps").update({"all_time_steps": new_total}).eq("user_id", user_id).execute()
+    else:
+        _client.table("total_steps").upsert({"user_id": user_id, "all_time_steps": steps}).execute()
 
 
 # ---------------------------------------------------------------------------
@@ -565,7 +539,6 @@ def full_reset() -> None:
     _client.table("total_exercise").delete().gte("user_id", 0).execute()
     _client.table("activities").delete().gte("id", 0).execute()
     _client.table("salo").delete().gte("id", 0).execute()
-    print("[DB:full_reset] all activity tables cleared, users and admins preserved")
 
 
 # ---------------------------------------------------------------------------
@@ -581,8 +554,7 @@ _OLD_RANK_REWARDS = [
 def cleanup_old_rewards() -> None:
     """Удаляет устаревшие награды-звания из БД (одноразовая миграция)."""
     try:
-        res = _client.table("rewards").delete().in_("reward", _OLD_RANK_REWARDS).execute()
-        print(f"[CLEANUP] deleted old rank rewards: {len(res.data)} rows")
+        _client.table("rewards").delete().in_("reward", _OLD_RANK_REWARDS).execute()
     except Exception as e:
         print(f"[CLEANUP] ERROR deleting old rewards: {e}")
 
@@ -611,20 +583,13 @@ def check_and_award_level(user_id: int, old_xp: int, new_xp: int) -> list[tuple[
     import messages as msg
     old_level = get_level(old_xp)
     new_level = get_level(new_xp)
-    levels_to_check = list(range(old_level + 1, new_level + 1))
-    print(f"[AWARD] user={user_id} old_xp={old_xp} new_xp={new_xp} old_level={old_level} new_level={new_level} levels_to_check={levels_to_check}")
     awarded = []
-    for level in levels_to_check:
+    for level in range(old_level + 1, new_level + 1):
         if level in msg.REWARDS:
             reward = msg.get(msg.REWARDS[level])
-            print(f"[AWARD] awarding level={level} reward={reward!r} to user={user_id}")
             try:
                 add_reward(user_id, level, reward)
                 awarded.append((level, reward))
-                print(f"[AWARD] add_reward OK: level={level}")
             except Exception as e:
                 print(f"[AWARD] add_reward FAILED: level={level} error={e}")
-        else:
-            print(f"[AWARD] level={level} not in REWARDS, skip")
-    print(f"[AWARD] done: awarded={awarded}")
     return awarded

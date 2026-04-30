@@ -105,7 +105,6 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     exercise_jailed = db.is_jailed(uid, "exercise")
 
     steps_days_str = "🚫" if steps_jailed else pluralize_days(stats["steps"])
-    exercise_str = "🚫" if exercise_jailed else pluralize_days(stats["exercise"])
 
     monthly_steps = db.get_monthly_steps(uid, month, year)
     total_steps = db.get_total_steps(uid)
@@ -120,7 +119,6 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     exercise_total_str = "🚫" if exercise_jailed else pluralize_days(total_exercise_days)
 
     rewards = db.get_user_rewards(uid)
-    print(f"[STATS] get_user_rewards(uid={uid}) returned: {rewards}")
     rewards_str = ""
     if rewards:
         titles = ", ".join(f"{r['reward']} (ур. {r['level']})" for r in rewards)
@@ -157,8 +155,7 @@ async def cmd_topsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"🚶 Шаги — {_month_label(month, year)}\n\n"
         f"{leaderboard}"
     )
-    sent = await message.reply_text(text, parse_mode="HTML")
-    print(f"[TOPSTEPS] chat_id={sent.chat_id}  message_id={sent.message_id}")
+    await message.reply_text(text, parse_mode="HTML")
 
 
 async def cmd_topexercise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -175,8 +172,7 @@ async def cmd_topexercise(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"⚡ Зарядка — {_month_label(month, year)}\n\n"
         f"{leaderboard}"
     )
-    sent = await message.reply_text(text, parse_mode="HTML")
-    print(f"[TOPEXERCISE] chat_id={sent.chat_id}  message_id={sent.message_id}")
+    await message.reply_text(text, parse_mode="HTML")
 
 
 async def cmd_topxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -230,8 +226,7 @@ async def cmd_topsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"🥓 Сало — {_month_label(month, year)}\n\n"
         f"{leaderboard}"
     )
-    sent = await message.reply_text(text, parse_mode="HTML")
-    print(f"[TOPSALO] message_id={sent.message_id}")
+    await message.reply_text(text, parse_mode="HTML")
 
 
 def build_handlers():
