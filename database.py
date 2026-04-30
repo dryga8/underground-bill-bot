@@ -69,6 +69,8 @@ def record_activity(user_id: int, activity_type: str, activity_date: datetime.da
         "year": activity_date.year,
         "steps_count": 0,
     }).execute()
+    if activity_type == "exercise":
+        add_total_exercise_days(user_id)
 
 
 def record_steps(user_id: int, activity_date: datetime.date, steps_count: int) -> None:
@@ -314,6 +316,75 @@ def add_total_steps(user_id: int, steps: int) -> None:
         print(f"[DB:add_total_steps] EXCEPTION: {type(e).__name__}: {e}")
         traceback.print_exc()
         raise
+
+
+# ---------------------------------------------------------------------------
+# Total exercise days
+# ---------------------------------------------------------------------------
+
+def get_total_exercise_days(user_id: int) -> int:
+    res = _client.table("total_exercise").select("all_time_days").eq("user_id", user_id).limit(1).execute()
+    return res.data[0]["all_time_days"] if res.data else 0
+
+
+def add_total_exercise_days(user_id: int) -> None:
+    existing = _client.table("total_exercise").select("all_time_days").eq("user_id", user_id).limit(1).execute()
+    if existing.data:
+        new_total = (existing.data[0]["all_time_days"] or 0) + 1
+        _client.table("total_exercise").update({"all_time_days": new_total}).eq("user_id", user_id).execute()
+    else:
+        _client.table("total_exercise").upsert({"user_id": user_id, "all_time_days": 1}).execute()
+
+
+# ---------------------------------------------------------------------------
+# Salo
+# ---------------------------------------------------------------------------
+
+def add_salo(user_id: int, grams: int, month: int, year: int) -> None:
+    _client.table("salo").insert({
+        "user_id": user_id,
+        "grams": grams,
+        "month": month,
+        "year": year,
+    }).execute()
+    existing = _client.table("total_salo").select("all_time_grams").eq("user_id", user_id).limit(1).execute()
+    if existing.data:
+        new_total = (existing.data[0]["all_time_grams"] or 0) + grams
+        _client.table("total_salo").update({"all_time_grams": new_total}).eq("user_id", user_id).execute()
+    else:
+        _client.table("total_salo").upsert({"user_id": user_id, "all_time_grams": grams}).execute()
+
+
+def get_monthly_salo(user_id: int, month: int, year: int) -> int:
+    res = (
+        _client.table("salo")
+        .select("grams")
+        .eq("user_id", user_id)
+        .eq("month", month)
+        .eq("year", year)
+        .execute()
+    )
+    return sum(r["grams"] for r in res.data)
+
+
+def get_total_salo(user_id: int) -> int:
+    res = _client.table("total_salo").select("all_time_grams").eq("user_id", user_id).limit(1).execute()
+    return res.data[0]["all_time_grams"] if res.data else 0
+
+
+def get_salo_leaderboard(month: int, year: int) -> list[dict]:
+    res = _client.table("salo").select("user_id, grams").eq("month", month).eq("year", year).execute()
+    from collections import defaultdict
+    agg: dict[int, int] = defaultdict(int)
+    for row in res.data:
+        agg[row["user_id"]] += row["grams"]
+    result = []
+    for uid, monthly in agg.items():
+        user = get_user_by_id(uid)
+        total = get_total_salo(uid)
+        if user:
+            result.append({"user": user, "monthly_grams": monthly, "total_grams": total})
+    return result
 
 
 # ---------------------------------------------------------------------------

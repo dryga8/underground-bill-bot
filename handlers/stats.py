@@ -103,8 +103,12 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     total_steps = db.get_total_steps(uid)
     xp = db.get_user_xp(uid)
     level = db.get_level(xp)
+    monthly_salo = db.get_monthly_salo(uid, month, year)
+    total_salo = db.get_total_salo(uid)
+    total_exercise_days = db.get_total_exercise_days(uid)
 
     monthly_steps_str = "🚫" if steps_jailed else fmt_number(monthly_steps)
+    exercise_total_str = "🚫" if exercise_jailed else f"{exercise_str} (всего: {pluralize_days(total_exercise_days)})"
 
     rewards = db.get_user_rewards(uid)
     print(f"[STATS] get_user_rewards(uid={uid}) returned: {rewards}")
@@ -117,10 +121,12 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"{msg.get(msg.STATS_HEADER)}\n\n"
         f"🗂 Досье пирата: <b>{display}</b>\n\n"
         f"📅 {_month_label(month, year)}:\n"
-        f"⚡ Заряжается: {exercise_str}\n"
+        f"⚡ Заряжается: {exercise_total_str}\n"
         f"🚶 Шагает: {steps_days_str}\n"
         f"👟 Шагов за месяц: {monthly_steps_str}\n"
         f"👟 Шагов всего: {fmt_number(total_steps)}\n"
+        f"🥓 Сала за месяц: {monthly_salo} г\n"
+        f"🥓 Сала всего: {total_salo} г\n"
         f"⭐ XP: {fmt_number(xp)} (Уровень {level})"
         f"{rewards_str}"
     )
@@ -184,10 +190,38 @@ async def cmd_topxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await message.reply_text(text, parse_mode="HTML")
 
 
+async def cmd_topsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    now_msk = datetime.datetime.now(MOSCOW_TZ)
+    month, year = now_msk.month, now_msk.year
+
+    rows = db.get_salo_leaderboard(month, year)
+    if not rows:
+        await message.reply_text("Пока никто не сбрасывал сало. Шевелитесь, бойцы.")
+        return
+
+    rows.sort(key=lambda r: r["monthly_grams"], reverse=True)
+    lines = []
+    for r in rows:
+        name = get_display_name(r["user"])
+        lines.append(f"{name} — {r['monthly_grams']} г за месяц / {r['total_grams']} г всего")
+
+    text = (
+        f"{msg.get(msg.TOP_HEADER)}\n"
+        f"🥓 Сало — {_month_label(month, year)}\n\n"
+        + "\n".join(lines)
+    )
+    await message.reply_text(text, parse_mode="HTML")
+
+
 def build_handlers():
     return [
         CommandHandler("stats", cmd_stats),
         CommandHandler("topsteps", cmd_topsteps),
         CommandHandler("topexercise", cmd_topexercise),
         CommandHandler("topxp", cmd_topxp),
+        CommandHandler("topsalo", cmd_topsalo),
     ]

@@ -8,7 +8,7 @@ import database as db
 import messages as msg
 from config import OWNER_ID
 from database import get_level
-from utils import get_display_name, get_moscow_date
+from utils import get_display_name, get_moscow_date, fmt_number
 from handlers.common import send_level_up_notifications
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -285,11 +285,65 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as e:
         print(f"[ADDSTEPS] ERROR in add_total_steps: {type(e).__name__}: {e}")
 
-    from utils import fmt_number
     await message.reply_text(
         f"{msg.get(msg.DAYS_ADDED)}\n\n"
         f"<b>{display}</b> — {fmt_number(steps_count)} шагов за сегодня. "
         f"+{xp_earned} XP → {fmt_number(new_total)} XP (Уровень {level}).",
+        parse_mode="HTML",
+    )
+
+    if rewards:
+        await send_level_up_notifications(context, display, rewards)
+
+
+async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    caller = update.effective_user
+    if not caller or not _is_privileged(caller.id):
+        await message.reply_text("Недостаточно полномочий. Это для командования.")
+        return
+
+    if not context.args or len(context.args) < 2:
+        await message.reply_text("Формат: /addsalo @username 500")
+        return
+
+    username = context.args[0].lstrip("@")
+    try:
+        grams = int(context.args[1])
+    except ValueError:
+        await message.reply_text("Граммы должны быть числом.")
+        return
+
+    if grams <= 0:
+        await message.reply_text("Количество грамм должно быть положительным.")
+        return
+
+    target = db.get_user_by_username(username)
+    if not target:
+        await message.reply_text(f"Боец @{username} в архивах не найден.")
+        return
+
+    now_msk = datetime.datetime.now(MOSCOW_TZ)
+    db.add_salo(target["user_id"], grams, now_msk.month, now_msk.year)
+
+    xp_earned = grams // 20
+    old_xp = db.get_user_xp(target["user_id"])
+    if xp_earned > 0:
+        new_total = db.add_xp(target["user_id"], xp_earned)
+        rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
+    else:
+        new_total = old_xp
+        rewards = []
+    level = get_level(new_total)
+    display = get_display_name(target)
+
+    xp_str = f" +{xp_earned} XP → {fmt_number(new_total)} XP (Уровень {level})." if xp_earned > 0 else ""
+    await message.reply_text(
+        f"{msg.get(msg.SALO_ADDED)}\n\n"
+        f"<b>{display}</b> — {grams} г сала.{xp_str}",
         parse_mode="HTML",
     )
 
@@ -306,4 +360,5 @@ def build_handlers():
         CommandHandler("removedays", cmd_removedays),
         CommandHandler("addxp", cmd_addxp),
         CommandHandler("addsteps", cmd_addsteps),
+        CommandHandler("addsalo", cmd_addsalo),
     ]
