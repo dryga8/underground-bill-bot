@@ -132,6 +132,10 @@ async def _handle_steps(message, user, context) -> None:
 
 
 async def _handle_exercise(message, user, context) -> None:
+    if message.video and message.video.duration < 60:
+        await message.reply_text(msg.get(msg.TOO_SHORT_VIDEO))
+        return
+
     combined = (message.caption or "") + " " + (message.text or "")
     if not _has_plus_one(combined):
         return

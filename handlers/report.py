@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
 
 import database as db
 import messages as msg
-from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID
+from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, SALO_THREAD_ID
 from utils import get_moscow_date, get_month_end, get_display_name
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -26,6 +26,8 @@ def _build_keyboard(report_id: int, yes_votes: int) -> InlineKeyboardMarkup:
 def _thread_to_activity_type(thread_id: int | None) -> str:
     if thread_id == EXERCISE_THREAD_ID:
         return "exercise"
+    if SALO_THREAD_ID and thread_id == SALO_THREAD_ID:
+        return "salo"
     return "steps"
 
 

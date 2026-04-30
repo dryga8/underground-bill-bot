@@ -509,6 +509,16 @@ def add_admin(user_id: int, added_by: int) -> None:
     _client.table("admins").upsert({"user_id": user_id, "added_by": added_by}).execute()
 
 
+def get_all_admins() -> list[dict]:
+    res = _client.table("admins").select("user_id").execute()
+    result = []
+    for row in res.data:
+        user = get_user_by_id(row["user_id"])
+        if user:
+            result.append(user)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Steps (admin override)
 # ---------------------------------------------------------------------------

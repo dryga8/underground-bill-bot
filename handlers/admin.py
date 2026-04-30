@@ -326,6 +326,14 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await message.reply_text(f"Боец @{username} в архивах не найден.")
         return
 
+    if db.is_jailed(target["user_id"], "salo"):
+        await message.reply_text(
+            f"<b>{get_display_name(target)}</b> в карцере по марафону сала. "
+            "Записи не принимаются до конца месяца.",
+            parse_mode="HTML",
+        )
+        return
+
     now_msk = datetime.datetime.now(MOSCOW_TZ)
     db.add_salo(target["user_id"], grams, now_msk.month, now_msk.year)
 

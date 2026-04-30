@@ -6,9 +6,11 @@ import pytz
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
+import database as db
 import messages as msg
 from config import BOT_TOKEN, GROUP_ID
 from handlers import activity, report, stats, admin, welcome, scheduler
+from utils import get_display_name
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 
@@ -35,6 +37,21 @@ async def cmd_help(update: Update, _) -> None:
         await update.effective_message.reply_text(msg.HELP_TEXT)
 
 
+async def cmd_admin(update: Update, _) -> None:
+    message = update.effective_message
+    if not message:
+        return
+    admins = db.get_all_admins()
+    if not admins:
+        await message.reply_text("Командование недоступно. Билл сам разберётся.", parse_mode="HTML")
+        return
+    mentions = " ".join(
+        f'<a href="tg://user?id={a["user_id"]}">{get_display_name(a)}</a>'
+        for a in admins
+    )
+    await message.reply_text(f"{msg.get(msg.ADMIN_CALL)}\n\n{mentions}", parse_mode="HTML")
+
+
 def main() -> None:
     import os
     import database as db
@@ -48,6 +65,7 @@ def main() -> None:
 
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
+    app.add_handler(CommandHandler("admin", cmd_admin))
 
     app.add_handler(activity.build_handler())
     app.add_handler(activity.build_edited_handler())
