@@ -43,6 +43,24 @@ def get_user_by_id(user_id: int) -> dict | None:
     return res.data[0] if res.data else None
 
 
+def get_all_users() -> list[dict]:
+    res = _client.table("users").select("*").execute()
+    return res.data
+
+
+def get_users_without_activity_today(activity_type: str, date: datetime.date) -> list[dict]:
+    all_users = _client.table("users").select("*").execute().data
+    done_res = (
+        _client.table("activities")
+        .select("user_id")
+        .eq("activity_type", activity_type)
+        .eq("activity_date", date.isoformat())
+        .execute()
+    )
+    done_ids = {r["user_id"] for r in done_res.data}
+    return [u for u in all_users if u["user_id"] not in done_ids]
+
+
 # ---------------------------------------------------------------------------
 # Activities
 # ---------------------------------------------------------------------------

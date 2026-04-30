@@ -134,6 +134,22 @@ def main() -> None:
     reset_time = datetime.time(hour=0, minute=0, second=0, tzinfo=MOSCOW_TZ)
     app.job_queue.run_monthly(scheduler.monthly_reset, when=reset_time, day=1)
 
+    for hour in (8, 14, 20):
+        app.job_queue.run_daily(
+            scheduler.send_steps_reminder,
+            time=datetime.time(hour=hour, minute=0, second=0, tzinfo=MOSCOW_TZ),
+        )
+    for hour in (9, 15, 21):
+        app.job_queue.run_daily(
+            scheduler.send_exercise_reminder,
+            time=datetime.time(hour=hour, minute=0, second=0, tzinfo=MOSCOW_TZ),
+        )
+    for hour in (10, 16, 22):
+        app.job_queue.run_daily(
+            scheduler.send_salo_reminder,
+            time=datetime.time(hour=hour, minute=0, second=0, tzinfo=MOSCOW_TZ),
+        )
+
     logger.info("Подпольщик Билл выходит на связь...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 

@@ -1,4 +1,5 @@
 import datetime
+import random
 import pytz
 
 from telegram.ext import ContextTypes
@@ -73,6 +74,43 @@ async def _send(context: ContextTypes.DEFAULT_TYPE, text: str, thread_id: int | 
         await context.bot.send_message(**kwargs)
     except Exception as e:
         print(f"[MONTHLY_RESET] error sending to thread_id={thread_id}: {e}")
+
+
+async def send_steps_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
+    today = datetime.datetime.now(MOSCOW_TZ).date()
+    users = db.get_users_without_activity_today("steps", today)
+    if not users:
+        return
+    user = random.choice(users)
+    name = get_display_name(user)
+    mention = f'<a href="tg://user?id={user["user_id"]}">{name}</a>'
+    text = msg.get(msg.REMINDER_STEPS).replace("{name}", mention)
+    await _send(context, text, STEPS_THREAD_ID)
+
+
+async def send_exercise_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
+    today = datetime.datetime.now(MOSCOW_TZ).date()
+    users = db.get_users_without_activity_today("exercise", today)
+    if not users:
+        return
+    user = random.choice(users)
+    name = get_display_name(user)
+    mention = f'<a href="tg://user?id={user["user_id"]}">{name}</a>'
+    text = msg.get(msg.REMINDER_EXERCISE).replace("{name}", mention)
+    await _send(context, text, EXERCISE_THREAD_ID)
+
+
+async def send_salo_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not SALO_THREAD_ID:
+        return
+    users = db.get_all_users()
+    if not users:
+        return
+    user = random.choice(users)
+    name = get_display_name(user)
+    mention = f'<a href="tg://user?id={user["user_id"]}">{name}</a>'
+    text = msg.get(msg.REMINDER_SALO).replace("{name}", mention)
+    await _send(context, text, SALO_THREAD_ID)
 
 
 async def monthly_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
