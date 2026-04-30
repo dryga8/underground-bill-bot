@@ -90,6 +90,9 @@ async def cmd_admin(update: Update, _) -> None:
     message = update.effective_message
     if not message:
         return
+    chat = update.effective_chat
+    if not chat or chat.id != GROUP_ID:
+        return
     admins = db.get_all_admins()
     if not admins:
         await message.reply_text("Командование недоступно. Билл сам разберётся.", parse_mode="HTML")

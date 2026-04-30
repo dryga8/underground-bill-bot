@@ -2,7 +2,7 @@ import datetime
 import pytz
 
 from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler
+from telegram.ext import ContextTypes, CommandHandler, filters
 
 import database as db
 import messages as msg
@@ -396,14 +396,15 @@ async def cmd_fullreset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 def build_handlers():
+    _group = filters.Chat(GROUP_ID)
     return [
-        CommandHandler("addadmin", cmd_addadmin),
-        CommandHandler("pardon", cmd_pardon),
-        CommandHandler("reset", cmd_reset),
-        CommandHandler("adddays", cmd_adddays),
-        CommandHandler("removedays", cmd_removedays),
-        CommandHandler("addxp", cmd_addxp),
-        CommandHandler("addsteps", cmd_addsteps),
-        CommandHandler("addsalo", cmd_addsalo),
-        CommandHandler("fullreset", cmd_fullreset),
+        CommandHandler("addadmin", cmd_addadmin, filters=_group),
+        CommandHandler("pardon", cmd_pardon, filters=_group),
+        CommandHandler("reset", cmd_reset, filters=_group),
+        CommandHandler("adddays", cmd_adddays, filters=_group),
+        CommandHandler("removedays", cmd_removedays, filters=_group),
+        CommandHandler("addxp", cmd_addxp, filters=_group),
+        CommandHandler("addsteps", cmd_addsteps, filters=_group),
+        CommandHandler("addsalo", cmd_addsalo, filters=_group),
+        CommandHandler("fullreset", cmd_fullreset, filters=_group),
     ]
