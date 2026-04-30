@@ -3,8 +3,8 @@ import logging
 import traceback
 import pytz
 
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters, ContextTypes
 
 import database as db
 import messages as msg
@@ -32,9 +32,64 @@ async def debug_ids(update: Update, _) -> None:
         print(f"[DEBUG] chat_id={m.chat_id}  message_thread_id={m.message_thread_id}")
 
 
-async def cmd_help(update: Update, _) -> None:
-    if update.effective_message:
-        await update.effective_message.reply_text(msg.HELP_TEXT)
+_HELP_KEYBOARD = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("🚶 Марафон шагов", callback_data="help:steps"),
+        InlineKeyboardButton("⚡ Марафон зарядки", callback_data="help:exercise"),
+    ],
+    [
+        InlineKeyboardButton("🥓 Марафон сала", callback_data="help:salo"),
+        InlineKeyboardButton("⭐ XP и уровни", callback_data="help:xp"),
+    ],
+    [InlineKeyboardButton("📋 Команды", callback_data="help:commands")],
+])
+
+_HELP_SECTIONS: dict[str, str] = {
+    "steps":    msg.HELP_STEPS,
+    "exercise": msg.HELP_EXERCISE,
+    "salo":     msg.HELP_SALO,
+    "xp":       msg.HELP_XP,
+    "commands": msg.HELP_COMMANDS,
+}
+
+_HELP_DELETE_SECONDS = 900
+
+
+async def _delete_msg_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    data = context.job.data
+    try:
+        await context.bot.delete_message(chat_id=data["chat_id"], message_id=data["message_id"])
+    except Exception:
+        pass
+
+
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+    sent = await message.reply_text(msg.HELP_MAIN, parse_mode="HTML", reply_markup=_HELP_KEYBOARD)
+    context.job_queue.run_once(
+        _delete_msg_job,
+        when=_HELP_DELETE_SECONDS,
+        data={"chat_id": sent.chat_id, "message_id": sent.message_id},
+    )
+
+
+async def callback_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+    section = (query.data or "").split(":")[1] if query.data else ""
+    text = _HELP_SECTIONS.get(section)
+    if not text or not query.message:
+        return
+    sent = await query.message.reply_text(text, parse_mode="HTML")
+    context.job_queue.run_once(
+        _delete_msg_job,
+        when=_HELP_DELETE_SECONDS,
+        data={"chat_id": sent.chat_id, "message_id": sent.message_id},
+    )
 
 
 async def cmd_admin(update: Update, _) -> None:
@@ -66,6 +121,7 @@ def main() -> None:
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
     app.add_handler(CommandHandler("admin", cmd_admin))
+    app.add_handler(CallbackQueryHandler(callback_help, pattern=r"^help:"))
 
     app.add_handler(activity.build_handler())
     app.add_handler(activity.build_edited_handler())
