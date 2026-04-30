@@ -21,6 +21,14 @@ def _month_label(month: int, year: int) -> str:
     return f"{_MONTH_NAMES[month]} {year}"
 
 
+def _month_prep(month: int) -> str:
+    """Название месяца в предложном падеже: 'в Январе', 'в Мае' и т.д."""
+    name = _MONTH_NAMES[month]
+    if name.endswith("ь") or name.endswith("й"):
+        return name[:-1] + "е"
+    return name + "е"
+
+
 def build_activity_leaderboard(activity_type: str, month: int, year: int) -> str:
     """Отформатированный лидерборд по одной активности (без заголовка)."""
     if activity_type == "steps":
@@ -108,7 +116,8 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     total_exercise_days = db.get_total_exercise_days(uid)
 
     monthly_steps_str = "🚫" if steps_jailed else fmt_number(monthly_steps)
-    exercise_total_str = "🚫" if exercise_jailed else f"{exercise_str} / всего: {pluralize_days(total_exercise_days)}"
+    exercise_month_str = "🚫" if exercise_jailed else pluralize_days(stats["exercise"])
+    exercise_total_str = "🚫" if exercise_jailed else pluralize_days(total_exercise_days)
 
     rewards = db.get_user_rewards(uid)
     print(f"[STATS] get_user_rewards(uid={uid}) returned: {rewards}")
@@ -121,7 +130,8 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"{msg.get(msg.STATS_HEADER)}\n\n"
         f"🗂 Досье пирата: <b>{display}</b>\n\n"
         f"📅 {_month_label(month, year)}:\n"
-        f"⚡ Заряжается: {exercise_total_str}\n"
+        f"⚡ Заряжается в {_month_prep(month)}: {exercise_month_str}\n"
+        f"⚡ Заряжается всего: {exercise_total_str}\n"
         f"🚶 Шагает: {steps_days_str}\n"
         f"👟 Шагов за месяц: {monthly_steps_str}\n"
         f"👟 Шагов всего: {fmt_number(total_steps)}\n"
