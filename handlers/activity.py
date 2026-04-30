@@ -104,16 +104,21 @@ async def _handle_steps(message, user, context) -> None:
         print(f"[STEPS] calling add_xp(user_id={user.id}, xp={xp_earned})")
         old_xp = db.get_user_xp(user.id)
         new_xp = db.add_xp(user.id, xp_earned)
-        print(f"[STEPS] calling add_total_steps(user_id={user.id}, steps={steps_count})")
-        db.add_total_steps(user.id, steps_count)
-        print(f"[STEPS] add_xp and add_total_steps completed successfully")
+        print(f"[STEPS] add_xp done: old_xp={old_xp} new_xp={new_xp}")
         print(f"[STEPS] calling check_and_award_level: user={user.id} old_xp={old_xp} new_xp={new_xp}")
         rewards = db.check_and_award_level(user.id, old_xp, new_xp)
         print(f"[STEPS] check_and_award_level returned: {rewards}")
     except Exception as e:
         import traceback as tb
-        print(f"[STEPS] ERROR in add_xp/add_total_steps: {type(e).__name__}: {e}")
+        print(f"[STEPS] ERROR in add_xp/check_and_award_level: {type(e).__name__}: {e}")
         tb.print_exc()
+
+    try:
+        print(f"[STEPS] calling add_total_steps(user_id={user.id}, steps={steps_count})")
+        db.add_total_steps(user.id, steps_count)
+        print(f"[STEPS] add_total_steps done")
+    except Exception as e:
+        print(f"[STEPS] ERROR in add_total_steps: {type(e).__name__}: {e}")
 
     reply = f"Билл насчитал {fmt_number(steps_count)} шагов. " + msg.get(msg.STEPS_ACCEPTED)
     await message.reply_text(reply)

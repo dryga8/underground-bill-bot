@@ -271,13 +271,19 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     today = get_moscow_date()
     db.set_steps_for_date(target["user_id"], today, steps_count)
-    db.add_total_steps(target["user_id"], steps_count)
 
     xp_earned = min(steps_count // 500, 40)
     old_xp = db.get_user_xp(target["user_id"])
     new_total = db.add_xp(target["user_id"], xp_earned)
     level = db.get_level(new_total)
     display = get_display_name(target)
+
+    rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
+
+    try:
+        db.add_total_steps(target["user_id"], steps_count)
+    except Exception as e:
+        print(f"[ADDSTEPS] ERROR in add_total_steps: {type(e).__name__}: {e}")
 
     from utils import fmt_number
     await message.reply_text(
@@ -287,7 +293,6 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         parse_mode="HTML",
     )
 
-    rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
     if rewards:
         await send_level_up_notifications(context, display, rewards)
 
