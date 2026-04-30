@@ -340,10 +340,9 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     level = get_level(new_total)
     display = get_display_name(target)
 
-    xp_str = f" +{xp_earned} XP → {fmt_number(new_total)} XP (Уровень {level})." if xp_earned > 0 else ""
     await message.reply_text(
-        f"{msg.get(msg.SALO_ADDED)}\n\n"
-        f"<b>{display}</b> — {grams} г сала.{xp_str}",
+        f"{msg.get(msg.SALO_ADDED).format(grams=grams, xp=xp_earned)}\n\n"
+        f"<b>{display}</b> — итого {fmt_number(new_total)} XP (Уровень {level}).",
         parse_mode="HTML",
     )
 
