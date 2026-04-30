@@ -32,7 +32,9 @@ async def cmd_help(update: Update, _) -> None:
 
 def main() -> None:
     import os
+    import database as db
     print(f"[ENV] все ключи окружения: {sorted(os.environ.keys())}")
+    db.cleanup_old_rewards()
 
     app = Application.builder().token(BOT_TOKEN).build()
 

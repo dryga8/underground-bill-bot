@@ -1,7 +1,7 @@
 import messages as msg
 from config import GROUP_ID, NEWS_THREAD_ID
 
-_DELETE_AFTER_SECONDS = 60
+_DELETE_AFTER_SECONDS = 120
 
 
 async def _delete_job(context) -> None:

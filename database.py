@@ -472,6 +472,21 @@ def set_steps_for_date(user_id: int, activity_date, steps_count: int) -> bool:
 # Rewards
 # ---------------------------------------------------------------------------
 
+_OLD_RANK_REWARDS = [
+    'Новобранец подполья', 'Ефрейтор Сопротивления', 'Верный делу боец',
+    'Сержант Сопротивления', 'Надёжный сержант', 'Боец с опытом',
+]
+
+
+def cleanup_old_rewards() -> None:
+    """Удаляет устаревшие награды-звания из БД (одноразовая миграция)."""
+    try:
+        res = _client.table("rewards").delete().in_("reward", _OLD_RANK_REWARDS).execute()
+        print(f"[CLEANUP] deleted old rank rewards: {len(res.data)} rows")
+    except Exception as e:
+        print(f"[CLEANUP] ERROR deleting old rewards: {e}")
+
+
 def add_reward(user_id: int, level: int, reward: str) -> None:
     _client.table("rewards").insert({
         "user_id": user_id,

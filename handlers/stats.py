@@ -111,7 +111,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     rewards_str = ""
     if rewards:
         titles = ", ".join(f"{r['reward']} (ур. {r['level']})" for r in rewards)
-        rewards_str = f"\n🎖 Звания: {titles}"
+        rewards_str = f"\n🎖 Награды: {titles}"
 
     text = (
         f"{msg.get(msg.STATS_HEADER)}\n\n"
