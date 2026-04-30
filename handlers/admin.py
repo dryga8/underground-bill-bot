@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes, CommandHandler
 
 import database as db
 import messages as msg
-from config import OWNER_ID
+from config import OWNER_ID, PINNED_SALO_MESSAGE_ID, GROUP_ID
 from database import get_level
 from utils import get_display_name, get_moscow_date, fmt_number
 from handlers.common import send_level_up_notifications
@@ -348,6 +348,27 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if rewards:
         await send_level_up_notifications(context, display, rewards)
+
+    if PINNED_SALO_MESSAGE_ID:
+        from handlers.stats import build_salo_leaderboard_text
+        _month_names = {
+            1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
+            5: "Май", 6: "Июнь", 7: "Июль", 8: "Август",
+            9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь",
+        }
+        month_label = f"{_month_names[now_msk.month]} {now_msk.year}"
+        leaderboard = build_salo_leaderboard_text(now_msk.month, now_msk.year)
+        pinned_text = f"🥓 {month_label}\n\n{leaderboard}"
+        try:
+            await context.bot.edit_message_text(
+                chat_id=GROUP_ID,
+                message_id=PINNED_SALO_MESSAGE_ID,
+                text=pinned_text,
+                parse_mode="HTML",
+            )
+            print(f"[PINNED_SALO] updated message_id={PINNED_SALO_MESSAGE_ID}")
+        except Exception as e:
+            print(f"[PINNED_SALO] error: {e}")
 
 
 def build_handlers():

@@ -190,6 +190,18 @@ async def cmd_topxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await message.reply_text(text, parse_mode="HTML")
 
 
+def build_salo_leaderboard_text(month: int, year: int) -> str:
+    rows = db.get_salo_leaderboard(month, year)
+    if not rows:
+        return "Пока никто не сбрасывал сало. Шевелитесь, бойцы."
+    rows.sort(key=lambda r: r["monthly_grams"], reverse=True)
+    lines = [
+        f"{get_display_name(r['user'])} — {r['monthly_grams']} г за месяц / {r['total_grams']} г всего"
+        for r in rows
+    ]
+    return "\n".join(lines)
+
+
 async def cmd_topsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     if not message:
@@ -198,23 +210,18 @@ async def cmd_topsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     now_msk = datetime.datetime.now(MOSCOW_TZ)
     month, year = now_msk.month, now_msk.year
 
-    rows = db.get_salo_leaderboard(month, year)
-    if not rows:
-        await message.reply_text("Пока никто не сбрасывал сало. Шевелитесь, бойцы.")
+    leaderboard = build_salo_leaderboard_text(month, year)
+    if leaderboard == "Пока никто не сбрасывал сало. Шевелитесь, бойцы.":
+        await message.reply_text(leaderboard)
         return
-
-    rows.sort(key=lambda r: r["monthly_grams"], reverse=True)
-    lines = []
-    for r in rows:
-        name = get_display_name(r["user"])
-        lines.append(f"{name} — {r['monthly_grams']} г за месяц / {r['total_grams']} г всего")
 
     text = (
         f"{msg.get(msg.TOP_HEADER)}\n"
         f"🥓 Сало — {_month_label(month, year)}\n\n"
-        + "\n".join(lines)
+        f"{leaderboard}"
     )
-    await message.reply_text(text, parse_mode="HTML")
+    sent = await message.reply_text(text, parse_mode="HTML")
+    print(f"[TOPSALO] message_id={sent.message_id}")
 
 
 def build_handlers():
