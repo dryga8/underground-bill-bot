@@ -108,7 +108,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     total_exercise_days = db.get_total_exercise_days(uid)
 
     monthly_steps_str = "🚫" if steps_jailed else fmt_number(monthly_steps)
-    exercise_total_str = "🚫" if exercise_jailed else f"{exercise_str} (всего: {pluralize_days(total_exercise_days)})"
+    exercise_total_str = "🚫" if exercise_jailed else f"{exercise_str} / всего: {pluralize_days(total_exercise_days)}"
 
     rewards = db.get_user_rewards(uid)
     print(f"[STATS] get_user_rewards(uid={uid}) returned: {rewards}")
