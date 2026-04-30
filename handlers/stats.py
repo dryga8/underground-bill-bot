@@ -107,6 +107,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     monthly_steps_str = "🚫" if steps_jailed else fmt_number(monthly_steps)
 
     rewards = db.get_user_rewards(uid)
+    print(f"[STATS] get_user_rewards(uid={uid}) returned: {rewards}")
     rewards_str = ""
     if rewards:
         titles = ", ".join(f"{r['reward']} (ур. {r['level']})" for r in rewards)

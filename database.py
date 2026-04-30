@@ -496,10 +496,20 @@ def check_and_award_level(user_id: int, old_xp: int, new_xp: int) -> list[tuple[
     import messages as msg
     old_level = get_level(old_xp)
     new_level = get_level(new_xp)
+    levels_to_check = list(range(old_level + 1, new_level + 1))
+    print(f"[AWARD] user={user_id} old_xp={old_xp} new_xp={new_xp} old_level={old_level} new_level={new_level} levels_to_check={levels_to_check}")
     awarded = []
-    for level in range(old_level + 1, new_level + 1):
+    for level in levels_to_check:
         if level in msg.REWARDS:
             reward = msg.get(msg.REWARDS[level])
-            add_reward(user_id, level, reward)
-            awarded.append((level, reward))
+            print(f"[AWARD] awarding level={level} reward={reward!r} to user={user_id}")
+            try:
+                add_reward(user_id, level, reward)
+                awarded.append((level, reward))
+                print(f"[AWARD] add_reward OK: level={level}")
+            except Exception as e:
+                print(f"[AWARD] add_reward FAILED: level={level} error={e}")
+        else:
+            print(f"[AWARD] level={level} not in REWARDS, skip")
+    print(f"[AWARD] done: awarded={awarded}")
     return awarded
