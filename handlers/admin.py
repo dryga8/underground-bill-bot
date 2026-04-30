@@ -371,6 +371,22 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             print(f"[PINNED_SALO] error: {e}")
 
 
+async def cmd_fullreset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    caller = update.effective_user
+    if not caller or caller.id != OWNER_ID:
+        await message.reply_text("Эта команда — только для хозяйки. Билл не тронет.")
+        return
+
+    db.full_reset()
+    await message.reply_text(
+        "💥 Полный сброс выполнен. Все таблицы очищены: пользователи, активности, XP, сало, карцеры, жалобы, награды, админы. Начинаем с нуля."
+    )
+
+
 def build_handlers():
     return [
         CommandHandler("addadmin", cmd_addadmin),
@@ -381,4 +397,5 @@ def build_handlers():
         CommandHandler("addxp", cmd_addxp),
         CommandHandler("addsteps", cmd_addsteps),
         CommandHandler("addsalo", cmd_addsalo),
+        CommandHandler("fullreset", cmd_fullreset),
     ]

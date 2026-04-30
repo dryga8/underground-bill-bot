@@ -540,6 +540,27 @@ def set_steps_for_date(user_id: int, activity_date, steps_count: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Full reset (owner only)
+# ---------------------------------------------------------------------------
+
+def full_reset() -> None:
+    """Delete all rows from all tables in FK order. IRREVERSIBLE."""
+    _client.table("report_votes").delete().gte("id", 0).execute()
+    _client.table("reports").delete().gte("id", 0).execute()
+    _client.table("jails").delete().gte("id", 0).execute()
+    _client.table("rewards").delete().gte("id", 0).execute()
+    _client.table("xp").delete().gte("user_id", 0).execute()
+    _client.table("total_steps").delete().gte("user_id", 0).execute()
+    _client.table("total_salo").delete().gte("user_id", 0).execute()
+    _client.table("total_exercise").delete().gte("user_id", 0).execute()
+    _client.table("activities").delete().gte("id", 0).execute()
+    _client.table("salo").delete().gte("id", 0).execute()
+    _client.table("admins").delete().gte("user_id", 0).execute()
+    _client.table("users").delete().gte("user_id", 0).execute()
+    print("[DB:full_reset] all tables cleared")
+
+
+# ---------------------------------------------------------------------------
 # Rewards
 # ---------------------------------------------------------------------------
 

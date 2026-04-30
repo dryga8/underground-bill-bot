@@ -1,11 +1,16 @@
+import datetime
 import logging
 import traceback
+import pytz
+
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 import messages as msg
 from config import BOT_TOKEN, GROUP_ID
-from handlers import activity, report, stats, admin, welcome
+from handlers import activity, report, stats, admin, welcome, scheduler
+
+MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -59,6 +64,9 @@ def main() -> None:
     app.add_handler(welcome.build_handler())
 
     app.add_error_handler(error_handler)
+
+    reset_time = datetime.time(hour=0, minute=0, second=0, tzinfo=MOSCOW_TZ)
+    app.job_queue.run_monthly(scheduler.monthly_reset, when=reset_time, day=1)
 
     logger.info("Подпольщик Билл выходит на связь...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
