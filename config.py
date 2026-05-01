@@ -19,3 +19,6 @@ SALO_THREAD_ID: int | None = int(_salo_thread) if _salo_thread else None
 
 _news_thread = os.getenv("NEWS_THREAD_ID", "")
 NEWS_THREAD_ID: int | None = int(_news_thread) if _news_thread else None
+
+_writers_thread = os.getenv("WRITERS_THREAD_ID", "")
+WRITERS_THREAD_ID: int | None = int(_writers_thread) if _writers_thread else None

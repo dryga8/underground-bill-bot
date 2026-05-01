@@ -379,6 +379,49 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             print(f"[PINNED_SALO] error: {e}")
 
 
+async def cmd_addwriting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    caller = update.effective_user
+    if not caller or not _is_privileged(caller.id):
+        await message.reply_text("Недостаточно полномочий. Это для командования.")
+        return
+
+    if not context.args or len(context.args) < 2:
+        await message.reply_text("Формат: /addwriting @username 3 (или -2 для уменьшения)")
+        return
+
+    username = context.args[0].lstrip("@")
+    try:
+        delta = int(context.args[1])
+    except ValueError:
+        await message.reply_text("Количество дней должно быть числом.")
+        return
+
+    if delta == 0:
+        await message.reply_text("Укажи ненулевое число дней.")
+        return
+
+    target = db.get_user_by_username(username)
+    if not target:
+        await message.reply_text(f"Боец @{username} в архивах не найден.")
+        return
+
+    now_msk = datetime.datetime.now(MOSCOW_TZ)
+    result = db.adjust_writing_streak(target["user_id"], delta, now_msk.month, now_msk.year)
+    display = get_display_name(target)
+    sign = "+" if delta > 0 else ""
+
+    await message.reply_text(
+        f"{msg.get(msg.DAYS_ADDED)}\n\n"
+        f"<b>{display}</b> — {sign}{delta} к стрику.\n"
+        f"Текущий стрик: {result['current_streak']} дн., рекорд месяца: {result['max_streak_this_month']} дн.",
+        parse_mode="HTML",
+    )
+
+
 async def cmd_fullreset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     if not message:
@@ -406,5 +449,6 @@ def build_handlers():
         CommandHandler("addxp", cmd_addxp, filters=_group),
         CommandHandler("addsteps", cmd_addsteps, filters=_group),
         CommandHandler("addsalo", cmd_addsalo, filters=_group),
+        CommandHandler("addwriting", cmd_addwriting, filters=_group),
         CommandHandler("fullreset", cmd_fullreset, filters=_group),
     ]

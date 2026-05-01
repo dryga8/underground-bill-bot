@@ -645,6 +645,116 @@ def get_user_rewards(user_id: int) -> list[dict]:
     return res.data
 
 
+# ---------------------------------------------------------------------------
+# Writing streaks
+# ---------------------------------------------------------------------------
+
+def record_writing_post(user_id: int, post_date: datetime.date, month: int, year: int) -> int:
+    """Record a writing post. Returns updated current_streak (0 if duplicate)."""
+    res = _client.table("writing_streaks").select("*").eq("user_id", user_id).limit(1).execute()
+    yesterday = post_date - datetime.timedelta(days=1)
+
+    if res.data:
+        row = res.data[0]
+        last = row.get("last_post_date")
+        last_date = datetime.date.fromisoformat(last) if last else None
+
+        if last_date == post_date:
+            return 0  # дубль
+
+        if last_date == yesterday:
+            new_streak = (row.get("current_streak") or 0) + 1
+        else:
+            new_streak = 1
+
+        new_max = max(row.get("max_streak_this_month") or 0, new_streak)
+        _client.table("writing_streaks").update({
+            "current_streak": new_streak,
+            "max_streak_this_month": new_max,
+            "last_post_date": post_date.isoformat(),
+            "month": month,
+            "year": year,
+        }).eq("user_id", user_id).execute()
+        return new_streak
+    else:
+        _client.table("writing_streaks").insert({
+            "user_id": user_id,
+            "current_streak": 1,
+            "max_streak_this_month": 1,
+            "last_post_date": post_date.isoformat(),
+            "month": month,
+            "year": year,
+        }).execute()
+        return 1
+
+
+def get_writing_streak(user_id: int) -> dict:
+    """Returns {current_streak, max_streak_this_month}."""
+    res = _client.table("writing_streaks").select("current_streak, max_streak_this_month").eq("user_id", user_id).limit(1).execute()
+    if res.data:
+        return {"current_streak": res.data[0]["current_streak"] or 0, "max_streak_this_month": res.data[0]["max_streak_this_month"] or 0}
+    return {"current_streak": 0, "max_streak_this_month": 0}
+
+
+def get_writing_leaderboard() -> list[dict]:
+    """All writers sorted by current_streak DESC."""
+    res = _client.table("writing_streaks").select("*").order("current_streak", desc=True).execute()
+    result = []
+    for row in res.data:
+        user = get_user_by_id(row["user_id"])
+        if user:
+            result.append({
+                "user": user,
+                "current_streak": row.get("current_streak") or 0,
+                "max_streak_this_month": row.get("max_streak_this_month") or 0,
+            })
+    return result
+
+
+def adjust_writing_streak(user_id: int, delta: int, month: int, year: int) -> dict:
+    """Add delta to current_streak (min 0). Updates max if needed. Returns new values."""
+    res = _client.table("writing_streaks").select("*").eq("user_id", user_id).limit(1).execute()
+    if res.data:
+        row = res.data[0]
+        new_streak = max(0, (row.get("current_streak") or 0) + delta)
+        new_max = max(row.get("max_streak_this_month") or 0, new_streak)
+        _client.table("writing_streaks").update({
+            "current_streak": new_streak,
+            "max_streak_this_month": new_max,
+            "month": month,
+            "year": year,
+        }).eq("user_id", user_id).execute()
+    else:
+        new_streak = max(0, delta)
+        new_max = new_streak
+        _client.table("writing_streaks").insert({
+            "user_id": user_id,
+            "current_streak": new_streak,
+            "max_streak_this_month": new_max,
+            "month": month,
+            "year": year,
+        }).execute()
+    return {"current_streak": new_streak, "max_streak_this_month": new_max}
+
+
+def reset_writing_streaks() -> None:
+    """Reset current_streak and max for all rows (monthly reset)."""
+    _client.table("writing_streaks").update({
+        "current_streak": 0,
+        "max_streak_this_month": 0,
+        "last_post_date": None,
+    }).gte("user_id", 0).execute()
+
+
+def check_writing_duplicate(user_id: int, post_date: datetime.date) -> bool:
+    """Returns True if user already posted today."""
+    res = _client.table("writing_streaks").select("last_post_date").eq("user_id", user_id).limit(1).execute()
+    if not res.data:
+        return False
+    last = res.data[0].get("last_post_date")
+    return last is not None and datetime.date.fromisoformat(last) == post_date
+
+
 def check_and_award_level(user_id: int, old_xp: int, new_xp: int) -> list[tuple[int, str]]:
     """Award titles for each level crossed. Returns list of (level, reward) tuples."""
     import messages as msg

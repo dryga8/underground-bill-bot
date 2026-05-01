@@ -116,6 +116,16 @@ CREATE TABLE IF NOT EXISTS total_exercise (
     all_time_days INTEGER DEFAULT 0
 );
 
+-- Марафон графоманов
+CREATE TABLE IF NOT EXISTS writing_streaks (
+    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+    current_streak INTEGER DEFAULT 0,
+    max_streak_this_month INTEGER DEFAULT 0,
+    last_post_date DATE,
+    month INTEGER,
+    year INTEGER
+);
+
 CREATE INDEX idx_activities_user_month ON activities(user_id, month, year);
 CREATE INDEX idx_jails_active ON jails(user_id, active);
 CREATE INDEX idx_reports_status ON reports(status);

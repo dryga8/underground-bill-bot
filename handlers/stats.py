@@ -114,6 +114,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     total_salo = db.get_total_salo(uid)
     total_exercise_days = db.get_total_exercise_days(uid)
     food_days = db.get_food_days(uid, month, year)
+    writing = db.get_writing_streak(uid)
 
     monthly_steps_str = "🚫" if steps_jailed else fmt_number(monthly_steps)
     exercise_month_str = "🚫" if exercise_jailed else pluralize_days(stats["exercise"])
@@ -137,6 +138,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"🥓 Сала за месяц: {monthly_salo} г\n"
         f"🥓 Сала всего: {total_salo} г\n"
         f"🍽 Сфоткал еду в {_month_prep(month)}: {pluralize_days(food_days)}\n"
+        f"✍️ Посты в {_month_prep(month)}: {writing['current_streak']} дн. подряд (рекорд месяца: {writing['max_streak_this_month']} дн.)\n"
         f"⭐ XP: {fmt_number(xp)} (Уровень {level})"
         f"{rewards_str}"
     )
@@ -263,6 +265,39 @@ async def cmd_topsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await message.reply_text(text, parse_mode="HTML")
 
 
+async def cmd_topwriters(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    now_msk = datetime.datetime.now(MOSCOW_TZ)
+    month, year = now_msk.month, now_msk.year
+
+    rows = db.get_writing_leaderboard()
+    if not rows:
+        await message.reply_text("Пока никто не писал посты. Графоманов нет — подполье молчит.")
+        return
+
+    _medals = ["🥇", "🥈", "🥉"]
+    lines = []
+    for i, r in enumerate(rows):
+        name = get_display_name(r["user"])
+        prefix = _medals[i] if i < 3 else f"{i + 1}."
+        streak = r["current_streak"]
+        best = r["max_streak_this_month"]
+        if i < 3:
+            lines.append(f"{prefix} <b>{name}</b> — {streak} дн. подряд (рекорд: {best})")
+        else:
+            lines.append(f"{prefix} {name} — {streak} дн. подряд (рекорд: {best})")
+
+    text = (
+        f"{msg.get(msg.TOP_HEADER)}\n"
+        f"✍️ Графоманы — {_month_label(month, year)}\n\n"
+        + "\n".join(lines)
+    )
+    await message.reply_text(text, parse_mode="HTML")
+
+
 def build_handlers():
     return [
         CommandHandler("stats", cmd_stats),
@@ -270,4 +305,5 @@ def build_handlers():
         CommandHandler("topexercise", cmd_topexercise),
         CommandHandler("topxp", cmd_topxp),
         CommandHandler("topsalo", cmd_topsalo),
+        CommandHandler("topwriters", cmd_topwriters),
     ]

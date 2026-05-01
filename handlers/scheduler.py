@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 import database as db
 import messages as msg
-from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, NEWS_THREAD_ID, SALO_THREAD_ID
+from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, NEWS_THREAD_ID, SALO_THREAD_ID, WRITERS_THREAD_ID
 from utils import get_display_name, pluralize_days, fmt_number
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -42,6 +42,21 @@ def _board_exercise(rows: list) -> str:
         prefix = _MEDALS[i] if i < 3 else f"{i + 1}."
         entry = f"{prefix} <b>{name}</b>" if i < 3 else f"{prefix} {name}"
         entry += f" — {pluralize_days(r['days'])}"
+        lines.append(entry)
+    return "\n".join(lines)
+
+
+def _board_writing(rows: list) -> str:
+    if not rows:
+        return "В этом месяце никто не писал посты."
+    lines = []
+    for i, r in enumerate(rows):
+        name = get_display_name(r["user"])
+        prefix = _MEDALS[i] if i < 3 else f"{i + 1}."
+        streak = r["current_streak"]
+        best = r["max_streak_this_month"]
+        entry = f"{prefix} <b>{name}</b>" if i < 3 else f"{prefix} {name}"
+        entry += f" — {streak} дн. подряд (рекорд: {best})"
         lines.append(entry)
     return "\n".join(lines)
 
@@ -143,6 +158,7 @@ async def monthly_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
     steps_rows = sorted(db.get_steps_leaderboard(month, year), key=lambda r: r["steps_sum"], reverse=True)
     exercise_rows = sorted(db.get_activity_top("exercise", month, year), key=lambda r: r["days"], reverse=True)
     salo_rows = sorted(db.get_salo_leaderboard(month, year), key=lambda r: r["monthly_grams"], reverse=True)
+    writing_rows = sorted(db.get_writing_leaderboard(), key=lambda r: r["max_streak_this_month"], reverse=True)
 
     # Steps thread
     await _send(
@@ -166,21 +182,34 @@ async def monthly_reset(context: ContextTypes.DEFAULT_TYPE) -> None:
             SALO_THREAD_ID,
         )
 
+    # Writing thread (optional)
+    if WRITERS_THREAD_ID:
+        await _send(
+            context,
+            f"{msg.get(msg.MONTH_END_WRITING)}\n\n✍️ Итоги по постам — {month_name} {year}\n\n{_board_writing(writing_rows)}",
+            WRITERS_THREAD_ID,
+        )
+
     # News thread — compact top-3 summary
     top3_steps = _top3(steps_rows, lambda r: f"{get_display_name(r['user'])}: {fmt_number(r['steps_sum'])} шагов")
     top3_exercise = _top3(exercise_rows, lambda r: f"{get_display_name(r['user'])}: {pluralize_days(r['days'])}")
     top3_salo = _top3(salo_rows, lambda r: f"{get_display_name(r['user'])}: {r['monthly_grams']} г")
+    top3_writing = _top3(writing_rows, lambda r: f"{get_display_name(r['user'])}: {r['max_streak_this_month']} дн.")
 
     news_text = (
         f"{msg.get(msg.MONTH_END_NEWS)}\n\n"
         f"📅 Месяц {month_name} позади! Вот лидеры:\n\n"
         f"🚶 Шаги: {top3_steps}\n"
         f"⚡ Зарядка: {top3_exercise}\n"
-        f"🥓 Сало: {top3_salo}"
+        f"🥓 Сало: {top3_salo}\n"
+        f"✍️ Посты: {top3_writing}"
     )
     await _send(context, news_text, NEWS_THREAD_ID)
 
     # Lift all jails
     db.pardon_all()
 
-    print(f"[MONTHLY_RESET] done for {month_name} {year}, all jails pardoned")
+    # Reset writing streaks for new month
+    db.reset_writing_streaks()
+
+    print(f"[MONTHLY_RESET] done for {month_name} {year}, all jails pardoned, writing streaks reset")

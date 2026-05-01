@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes, MessageHandler, filters
 
 import database as db
 import messages as msg
-from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, SALO_THREAD_ID, PINNED_STEPS_MESSAGE_ID, PINNED_EXERCISE_MESSAGE_ID
+from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, SALO_THREAD_ID, PINNED_STEPS_MESSAGE_ID, PINNED_EXERCISE_MESSAGE_ID, WRITERS_THREAD_ID
 from utils import get_moscow_date, fmt_number, get_display_name
 from handlers.common import send_level_up_notifications
 
@@ -173,6 +173,41 @@ async def _handle_food(message, user, context) -> None:
     await message.reply_text(msg.get(msg.FOOD_ACCEPTED))
 
 
+def _has_link(text: str | None) -> bool:
+    t = text or ""
+    return "http://" in t or "https://" in t
+
+
+def _has_post_tag(text: str | None) -> bool:
+    return "#пост" in (text or "").lower()
+
+
+async def _handle_writing(message, user, context) -> None:
+    combined = (message.text or "") + " " + (message.caption or "")
+    if not _has_link(combined) or not _has_post_tag(combined):
+        return
+
+    db.upsert_user(
+        user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+    )
+
+    today = get_moscow_date()
+    if db.check_writing_duplicate(user.id, today):
+        await message.reply_text(msg.get(msg.WRITING_ALREADY))
+        return
+
+    streak = db.record_writing_post(user.id, today, today.month, today.year)
+    if streak == 0:
+        await message.reply_text(msg.get(msg.WRITING_ALREADY))
+        return
+
+    reply = msg.get(msg.WRITING_ACCEPTED).format(streak=streak)
+    await message.reply_text(reply)
+
+
 async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     if not message:
@@ -194,17 +229,19 @@ async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await _handle_exercise(message, user, context)
     elif SALO_THREAD_ID and thread_id == SALO_THREAD_ID and message.photo:
         await _handle_food(message, user, context)
+    elif WRITERS_THREAD_ID and thread_id == WRITERS_THREAD_ID:
+        await _handle_writing(message, user, context)
 
 
 def build_handler() -> MessageHandler:
     return MessageHandler(
-        filters.Chat(GROUP_ID) & (filters.PHOTO | filters.VIDEO) & ~filters.COMMAND,
+        filters.Chat(GROUP_ID) & (filters.PHOTO | filters.VIDEO | filters.TEXT) & ~filters.COMMAND,
         handle_activity,
     )
 
 
 def build_edited_handler() -> MessageHandler:
     return MessageHandler(
-        filters.UpdateType.EDITED_MESSAGE & filters.Chat(GROUP_ID) & (filters.PHOTO | filters.VIDEO) & ~filters.COMMAND,
+        filters.UpdateType.EDITED_MESSAGE & filters.Chat(GROUP_ID) & (filters.PHOTO | filters.VIDEO | filters.TEXT) & ~filters.COMMAND,
         handle_activity,
     )
