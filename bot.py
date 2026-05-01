@@ -104,6 +104,20 @@ async def cmd_admin(update: Update, _) -> None:
     await message.reply_text(f"{msg.get(msg.ADMIN_CALL)}\n\n{mentions}", parse_mode="HTML")
 
 
+async def debug_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg_ = update.effective_message
+    chat = update.effective_chat
+    if not msg_ or not chat:
+        return
+    logger.info(
+        "[DEBUG] chat_id=%s thread_id=%s from=%s text=%r",
+        chat.id,
+        msg_.message_thread_id,
+        update.effective_user and update.effective_user.id,
+        (msg_.text or msg_.caption or "")[:80],
+    )
+
+
 def main() -> None:
     import database as db
     db.cleanup_old_rewards()
@@ -129,6 +143,8 @@ def main() -> None:
 
     app.add_handler(welcome.build_handler())
     app.add_handler(news.build_handler())
+
+    app.add_handler(MessageHandler(filters.ALL, debug_all), group=1)
 
     app.add_error_handler(error_handler)
 
