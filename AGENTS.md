@@ -274,7 +274,7 @@ LEVELS = [0, 50, 150, 300, 500, 750, 1100, 1600, 2200, 3000,
 
 **Карцер.** `jailed_until` = последний день текущего месяца по МСК (`get_month_end`). Карцер раздельный по `activity_type`: 'steps', 'exercise', 'salo'.
 
-**Отображаемое имя.** Всегда через `get_display_name(user_dict)` из `utils.py`. Порядок: `username` (без @) → `first_name last_name` → `«Неизвестный боец»`. В лидербордах — только username без @.
+**Отображаемое имя.** Всегда через `get_display_name(user_dict)` из `utils.py`. Порядок: `username` (без @) → `first_name` → `«Неизвестный боец»`. Никаких комбинаций имя+фамилия.
 
 **Автоудаление сообщений.** Через `job_queue.run_once(_delete_message, delay)`. Константа `_DELETE_AFTER_SECONDS` в `handlers/common.py` (сейчас 120 сек = 2 мин).
 
