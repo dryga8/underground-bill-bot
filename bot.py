@@ -128,6 +128,7 @@ def main() -> None:
         app.add_handler(handler)
 
     app.add_handler(welcome.build_handler())
+    app.add_handler(news.build_handler())
 
     app.add_error_handler(error_handler)
 

@@ -4,10 +4,11 @@ import random
 
 import feedparser
 from bs4 import BeautifulSoup
-from telegram.ext import ContextTypes
+from telegram import Update
+from telegram.ext import CommandHandler, ContextTypes
 
 import messages as msg
-from config import GROUP_ID, NEWS_THREAD_ID
+from config import GROUP_ID, NEWS_THREAD_ID, OWNER_ID
 
 _RSS_FEEDS = [
     "https://lifehacker.ru/feed/",
@@ -121,3 +122,13 @@ async def send_news(context: ContextTypes.DEFAULT_TYPE) -> None:
             await context.bot.send_message(**send_kwargs, text=full_text)
         except Exception as e2:
             print(f"[NEWS] fallback send error: {e2}")
+
+
+async def cmd_testnews(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.effective_user or update.effective_user.id != OWNER_ID:
+        return
+    await send_news(context)
+
+
+def build_handler() -> CommandHandler:
+    return CommandHandler("testnews", cmd_testnews)
