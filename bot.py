@@ -33,15 +33,19 @@ _HELP_KEYBOARD = InlineKeyboardMarkup([
     ],
     [
         InlineKeyboardButton("🥓 Марафон сала", callback_data="help:salo"),
-        InlineKeyboardButton("⭐ XP и уровни", callback_data="help:xp"),
+        InlineKeyboardButton("✍️ Марафон графоманов", callback_data="help:writers"),
     ],
-    [InlineKeyboardButton("📋 Команды", callback_data="help:commands")],
+    [
+        InlineKeyboardButton("⭐ XP и уровни", callback_data="help:xp"),
+        InlineKeyboardButton("📋 Команды", callback_data="help:commands"),
+    ],
 ])
 
 _HELP_SECTIONS: dict[str, str] = {
     "steps":    msg.HELP_STEPS,
     "exercise": msg.HELP_EXERCISE,
     "salo":     msg.HELP_SALO,
+    "writers":  msg.HELP_WRITERS,
     "xp":       msg.HELP_XP,
     "commands": msg.HELP_COMMANDS,
 }
