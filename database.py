@@ -407,8 +407,10 @@ def get_food_days_leaderboard(month: int, year: int) -> dict[int, int]:
         .execute()
     )
     from collections import Counter
-    counts: Counter = Counter(row["user_id"] for row in res.data)
-    return dict(counts)
+    counts: Counter = Counter(int(row["user_id"]) for row in res.data)
+    result = dict(counts)
+    print(f"[FOOD_LB] month={month} year={year} raw_rows={len(res.data)} result={result}")
+    return result
 
 
 def get_salo_leaderboard(month: int, year: int) -> list[dict]:
