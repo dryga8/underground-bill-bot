@@ -76,6 +76,24 @@ async def _send(context: ContextTypes.DEFAULT_TYPE, text: str, thread_id: int | 
         print(f"[MONTHLY_RESET] error sending to thread_id={thread_id}: {e}")
 
 
+async def send_daily_xp_leaderboard(context: ContextTypes.DEFAULT_TYPE) -> None:
+    rows = db.get_xp_leaderboard()
+    if not rows:
+        return
+
+    lines = []
+    for i, r in enumerate(rows):
+        name = get_display_name(r["user"])
+        xp = r["total_xp"]
+        level = db.get_level(xp)
+        prefix = _MEDALS[i] if i < 3 else f"{i + 1}."
+        entry = f"{prefix} <b>{name}</b>" if i < 3 else f"{prefix} {name}"
+        lines.append(f"{entry} — {fmt_number(xp)} XP (Уровень {level})")
+
+    text = f"{msg.get(msg.DAILY_XP_HEADER)}\n\n" + "\n".join(lines)
+    await _send(context, text, NEWS_THREAD_ID)
+
+
 async def send_steps_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
     today = datetime.datetime.now(MOSCOW_TZ).date()
     users = db.get_users_without_activity_today("steps", today)

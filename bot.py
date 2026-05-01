@@ -150,6 +150,11 @@ def main() -> None:
             time=datetime.time(hour=hour, minute=0, second=0, tzinfo=MOSCOW_TZ),
         )
 
+    app.job_queue.run_daily(
+        scheduler.send_daily_xp_leaderboard,
+        time=datetime.time(hour=7, minute=30, second=0, tzinfo=MOSCOW_TZ),
+    )
+
     for hour in (9, 14, 19):
         app.job_queue.run_daily(
             news.send_news,
