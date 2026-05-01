@@ -204,7 +204,8 @@ def build_salo_leaderboard_text(month: int, year: int) -> str:
         return "Пока никто не сбрасывал сало. Шевелитесь, бойцы."
     rows.sort(key=lambda r: r["monthly_grams"], reverse=True)
     food_map = db.get_food_days_leaderboard(month, year)
-    print(f"[TOPSALO] food_map={food_map} salo_users={[r['user']['user_id'] for r in rows]}")
+    print(f"[TOPSALO] food_days_data={food_map}")
+    print(f"[TOPSALO] salo_users={[r['user']['user_id'] for r in rows]}")
     lines = []
     for r in rows:
         uid = int(r["user"]["user_id"])
