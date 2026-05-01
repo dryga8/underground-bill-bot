@@ -199,22 +199,46 @@ async def cmd_topxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def build_salo_leaderboard_text(month: int, year: int) -> str:
-    rows = db.get_salo_leaderboard(month, year)
-    if not rows:
-        return "Пока никто не сбрасывал сало. Шевелитесь, бойцы."
-    rows.sort(key=lambda r: r["monthly_grams"], reverse=True)
+    salo_rows = db.get_salo_leaderboard(month, year)
     food_map = db.get_food_days_leaderboard(month, year)
     print(f"[TOPSALO] food_days_data={food_map}")
-    print(f"[TOPSALO] salo_users={[r['user']['user_id'] for r in rows]}")
-    lines = []
-    for r in rows:
-        uid = int(r["user"]["user_id"])
+
+    # index salo data by uid
+    salo_by_uid: dict[int, dict] = {int(r["user"]["user_id"]): r for r in salo_rows}
+    print(f"[TOPSALO] salo_uids={list(salo_by_uid.keys())}")
+
+    all_uids = set(salo_by_uid.keys()) | set(food_map.keys())
+    if not all_uids:
+        return "Пока никто не сбрасывал сало. Шевелитесь, бойцы."
+
+    combined = []
+    for uid in all_uids:
+        if uid in salo_by_uid:
+            r = salo_by_uid[uid]
+            user = r["user"]
+            monthly_grams = r["monthly_grams"]
+            total_grams = r["total_grams"]
+        else:
+            user = db.get_user_by_id(uid)
+            if not user:
+                continue
+            monthly_grams = 0
+            total_grams = db.get_total_salo(uid)
         food_days = food_map.get(uid, 0)
-        print(f"[TOPSALO] uid={uid} food_days={food_days}")
-        lines.append(
-            f"{get_display_name(r['user'])} — {r['monthly_grams']} г за месяц"
-            f" / {r['total_grams']} г всего / 🍽 {food_days} дней еды"
-        )
+        print(f"[TOPSALO] uid={uid} monthly_grams={monthly_grams} food_days={food_days}")
+        combined.append({
+            "name": get_display_name(user),
+            "monthly_grams": monthly_grams,
+            "total_grams": total_grams,
+            "food_days": food_days,
+        })
+
+    combined.sort(key=lambda r: (-r["monthly_grams"], r["name"].lower()))
+    lines = [
+        f"{r['name']} — {r['monthly_grams']} г за месяц"
+        f" / {r['total_grams']} г всего / 🍽 {r['food_days']} дней еды"
+        for r in combined
+    ]
     return "\n".join(lines)
 
 
