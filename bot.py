@@ -9,7 +9,7 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 import database as db
 import messages as msg
 from config import BOT_TOKEN, GROUP_ID
-from handlers import activity, report, stats, admin, welcome, scheduler
+from handlers import activity, report, stats, admin, welcome, scheduler, news
 from utils import get_display_name
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -147,6 +147,12 @@ def main() -> None:
     for hour in (10, 16, 22):
         app.job_queue.run_daily(
             scheduler.send_salo_reminder,
+            time=datetime.time(hour=hour, minute=0, second=0, tzinfo=MOSCOW_TZ),
+        )
+
+    for hour in (9, 14, 19):
+        app.job_queue.run_daily(
+            news.send_news,
             time=datetime.time(hour=hour, minute=0, second=0, tzinfo=MOSCOW_TZ),
         )
 
