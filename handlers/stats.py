@@ -203,8 +203,10 @@ def build_salo_leaderboard_text(month: int, year: int) -> str:
     if not rows:
         return "Пока никто не сбрасывал сало. Шевелитесь, бойцы."
     rows.sort(key=lambda r: r["monthly_grams"], reverse=True)
+    food_map = db.get_food_days_leaderboard(month, year)
     lines = [
         f"{get_display_name(r['user'])} — {r['monthly_grams']} г за месяц / {r['total_grams']} г всего"
+        f" / 🍽 {food_map.get(r['user']['user_id'], 0)} дней еды"
         for r in rows
     ]
     return "\n".join(lines)

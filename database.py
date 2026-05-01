@@ -397,6 +397,20 @@ def get_food_days(user_id: int, month: int, year: int) -> int:
     return len(res.data)
 
 
+def get_food_days_leaderboard(month: int, year: int) -> dict[int, int]:
+    """Возвращает {user_id: food_days_count} для всех у кого есть записи за месяц."""
+    res = (
+        _client.table("food_logs")
+        .select("user_id")
+        .eq("month", month)
+        .eq("year", year)
+        .execute()
+    )
+    from collections import Counter
+    counts: Counter = Counter(row["user_id"] for row in res.data)
+    return dict(counts)
+
+
 def get_salo_leaderboard(month: int, year: int) -> list[dict]:
     res = _client.table("salo").select("user_id, grams").eq("month", month).eq("year", year).execute()
     from collections import defaultdict
