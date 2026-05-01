@@ -364,6 +364,39 @@ def get_total_salo(user_id: int) -> int:
     return res.data[0]["all_time_grams"] if res.data else 0
 
 
+def is_food_recorded(user_id: int, food_date: datetime.date) -> bool:
+    res = (
+        _client.table("food_logs")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("food_date", food_date.isoformat())
+        .limit(1)
+        .execute()
+    )
+    return bool(res.data)
+
+
+def record_food(user_id: int, food_date: datetime.date, month: int, year: int) -> None:
+    _client.table("food_logs").insert({
+        "user_id": user_id,
+        "food_date": food_date.isoformat(),
+        "month": month,
+        "year": year,
+    }).execute()
+
+
+def get_food_days(user_id: int, month: int, year: int) -> int:
+    res = (
+        _client.table("food_logs")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("month", month)
+        .eq("year", year)
+        .execute()
+    )
+    return len(res.data)
+
+
 def get_salo_leaderboard(month: int, year: int) -> list[dict]:
     res = _client.table("salo").select("user_id, grams").eq("month", month).eq("year", year).execute()
     from collections import defaultdict

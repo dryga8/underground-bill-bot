@@ -113,6 +113,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     monthly_salo = db.get_monthly_salo(uid, month, year)
     total_salo = db.get_total_salo(uid)
     total_exercise_days = db.get_total_exercise_days(uid)
+    food_days = db.get_food_days(uid, month, year)
 
     monthly_steps_str = "🚫" if steps_jailed else fmt_number(monthly_steps)
     exercise_month_str = "🚫" if exercise_jailed else pluralize_days(stats["exercise"])
@@ -135,6 +136,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"👟 Шагов всего: {fmt_number(total_steps)}\n"
         f"🥓 Сала за месяц: {monthly_salo} г\n"
         f"🥓 Сала всего: {total_salo} г\n"
+        f"🍽 Сфоткал еду в {_month_prep(month)}: {pluralize_days(food_days)}\n"
         f"⭐ XP: {fmt_number(xp)} (Уровень {level})"
         f"{rewards_str}"
     )

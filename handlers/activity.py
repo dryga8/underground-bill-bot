@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes, MessageHandler, filters
 
 import database as db
 import messages as msg
-from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, PINNED_STEPS_MESSAGE_ID, PINNED_EXERCISE_MESSAGE_ID
+from config import GROUP_ID, STEPS_THREAD_ID, EXERCISE_THREAD_ID, SALO_THREAD_ID, PINNED_STEPS_MESSAGE_ID, PINNED_EXERCISE_MESSAGE_ID
 from utils import get_moscow_date, fmt_number, get_display_name
 from handlers.common import send_level_up_notifications
 
@@ -152,6 +152,27 @@ async def _handle_exercise(message, user, context) -> None:
     await _update_pinned_leaderboard(context, "exercise")
 
 
+async def _handle_food(message, user, context) -> None:
+    combined = (message.caption or "") + " " + (message.text or "")
+    if "#еда" not in combined.lower():
+        return
+
+    db.upsert_user(
+        user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+    )
+
+    today = get_moscow_date()
+    if db.is_food_recorded(user.id, today):
+        await message.reply_text(msg.get(msg.FOOD_ALREADY))
+        return
+
+    db.record_food(user.id, today, today.month, today.year)
+    await message.reply_text(msg.get(msg.FOOD_ACCEPTED))
+
+
 async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     if not message:
@@ -171,6 +192,8 @@ async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await _handle_steps(message, user, context)
     elif thread_id == EXERCISE_THREAD_ID and message.video:
         await _handle_exercise(message, user, context)
+    elif SALO_THREAD_ID and thread_id == SALO_THREAD_ID and message.photo:
+        await _handle_food(message, user, context)
 
 
 def build_handler() -> MessageHandler:
