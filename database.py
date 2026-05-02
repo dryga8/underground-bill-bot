@@ -301,13 +301,16 @@ def get_total_steps(user_id: int) -> int:
     return res.data[0]["all_time_steps"] if res.data else 0
 
 
-def add_total_steps(user_id: int, steps: int) -> None:
+def add_total_steps(user_id: int, steps: int) -> int:
+    """Add (or subtract) steps from all-time total. Clamps at 0. Returns new total."""
     existing = _client.table("total_steps").select("all_time_steps").eq("user_id", user_id).limit(1).execute()
     if existing.data:
-        new_total = (existing.data[0]["all_time_steps"] or 0) + steps
+        new_total = max(0, (existing.data[0]["all_time_steps"] or 0) + steps)
         _client.table("total_steps").update({"all_time_steps": new_total}).eq("user_id", user_id).execute()
     else:
-        _client.table("total_steps").upsert({"user_id": user_id, "all_time_steps": steps}).execute()
+        new_total = max(0, steps)
+        _client.table("total_steps").upsert({"user_id": user_id, "all_time_steps": new_total}).execute()
+    return new_total
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +398,52 @@ def get_food_days(user_id: int, month: int, year: int) -> int:
         .execute()
     )
     return len(res.data)
+
+
+def add_food_days(user_id: int, days: int, month: int, year: int) -> int:
+    """Добавляет (days > 0) или удаляет (days < 0) записи в food_logs. Возвращает кол-во изменённых записей."""
+    if days > 0:
+        existing_res = (
+            _client.table("food_logs")
+            .select("food_date")
+            .eq("user_id", user_id)
+            .eq("month", month)
+            .eq("year", year)
+            .execute()
+        )
+        existing_dates = {r["food_date"] for r in existing_res.data}
+
+        last_day = calendar.monthrange(year, month)[1]
+        added = 0
+        for day in range(1, last_day + 1):
+            if added >= days:
+                break
+            d = datetime.date(year, month, day)
+            if d.isoformat() not in existing_dates:
+                _client.table("food_logs").insert({
+                    "user_id": user_id,
+                    "food_date": d.isoformat(),
+                    "month": month,
+                    "year": year,
+                }).execute()
+                added += 1
+        return added
+    else:
+        n = abs(days)
+        res = (
+            _client.table("food_logs")
+            .select("id, food_date")
+            .eq("user_id", user_id)
+            .eq("month", month)
+            .eq("year", year)
+            .order("food_date", desc=True)
+            .limit(n)
+            .execute()
+        )
+        ids_to_delete = [r["id"] for r in res.data]
+        if ids_to_delete:
+            _client.table("food_logs").delete().in_("id", ids_to_delete).execute()
+        return len(ids_to_delete)
 
 
 def get_food_days_leaderboard(month: int, year: int) -> dict[int, int]:

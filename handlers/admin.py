@@ -456,6 +456,48 @@ async def cmd_addwriting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
+async def cmd_addfood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    caller = update.effective_user
+    if not caller or not _is_privileged(caller.id):
+        await message.reply_text("Недостаточно полномочий. Это для командования.")
+        return
+
+    if not context.args or len(context.args) < 2:
+        await message.reply_text("Формат: /addfood @username 3 (или -2 для удаления)")
+        return
+
+    username = context.args[0].lstrip("@")
+    try:
+        days = int(context.args[1])
+    except ValueError:
+        await message.reply_text("Количество дней должно быть числом.")
+        return
+
+    if days == 0:
+        await message.reply_text("Укажи ненулевое число дней.")
+        return
+
+    target = db.get_user_by_username(username)
+    if not target:
+        await message.reply_text(f"Боец @{username} в архивах не найден.")
+        return
+
+    now_msk = datetime.datetime.now(MOSCOW_TZ)
+    changed = db.add_food_days(target["user_id"], days, now_msk.month, now_msk.year)
+    display = get_display_name(target)
+    action = "добавлено" if days > 0 else "удалено"
+
+    await message.reply_text(
+        f"{msg.get(msg.FOOD_DAYS_ADDED)}\n\n"
+        f"<b>{display}</b> — {action} {changed} дн. питания.",
+        parse_mode="HTML",
+    )
+
+
 async def cmd_fullreset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     if not message:
@@ -484,5 +526,6 @@ def build_handlers():
         CommandHandler("addsteps", cmd_addsteps, filters=_group),
         CommandHandler("addsalo", cmd_addsalo, filters=_group),
         CommandHandler("addwriting", cmd_addwriting, filters=_group),
+        CommandHandler("addfood", cmd_addfood, filters=_group),
         CommandHandler("fullreset", cmd_fullreset, filters=_group),
     ]
