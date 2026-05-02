@@ -126,6 +126,18 @@ CREATE TABLE IF NOT EXISTS writing_streaks (
     year INTEGER
 );
 
+-- Лог начислений XP
+CREATE TABLE IF NOT EXISTS xp_log (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(user_id),
+    xp_change INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('auto', 'admin')),
+    admin_id BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE INDEX idx_activities_user_month ON activities(user_id, month, year);
 CREATE INDEX idx_jails_active ON jails(user_id, active);
 CREATE INDEX idx_reports_status ON reports(status);
+CREATE INDEX IF NOT EXISTS idx_xp_log_user ON xp_log(user_id, created_at DESC);

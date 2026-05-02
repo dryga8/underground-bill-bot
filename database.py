@@ -263,6 +263,31 @@ def remove_days(user_id: int, activity_type: str, days: int, month: int, year: i
 # XP
 # ---------------------------------------------------------------------------
 
+def log_xp(user_id: int, xp_change: int, reason: str, source: str, admin_id: int | None = None) -> None:
+    try:
+        _client.table("xp_log").insert({
+            "user_id": user_id,
+            "xp_change": xp_change,
+            "reason": reason,
+            "source": source,
+            "admin_id": admin_id,
+        }).execute()
+    except Exception as e:
+        print(f"[XP_LOG] ERROR: {e}")
+
+
+def get_xp_log(user_id: int, limit: int = 20) -> list[dict]:
+    res = (
+        _client.table("xp_log")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return res.data
+
+
 def get_user_xp(user_id: int) -> int:
     res = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
     return res.data[0]["total_xp"] if res.data else 0

@@ -123,6 +123,7 @@ def _parse_days_args(args: list[str]) -> tuple[str, str, int] | None:
 
 
 _ACTIVITY_LABEL = {"steps": "шаги", "exercise": "зарядка"}
+_XP_REASON_DAYS = {"steps": "добавлены дни шагов", "exercise": "добавлены дни зарядки"}
 
 
 async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -157,6 +158,7 @@ async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if xp_earned > 0:
         old_xp = db.get_user_xp(target["user_id"])
         new_total = db.add_xp(target["user_id"], xp_earned)
+        db.log_xp(target["user_id"], xp_earned, _XP_REASON_DAYS[activity_type], 'admin', caller.id)
         rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
         xp_info = f" +{xp_earned} XP → {fmt_number(new_total)} XP (Уровень {get_level(new_total)})"
         if rewards:
@@ -200,6 +202,7 @@ async def cmd_removedays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     xp_info = ""
     if xp_penalty > 0:
         new_total = db.add_xp(target["user_id"], -xp_penalty)
+        db.log_xp(target["user_id"], -xp_penalty, _XP_REASON_DAYS[activity_type], 'admin', caller.id)
         xp_info = f" -{xp_penalty} XP → {fmt_number(new_total)} XP (Уровень {get_level(new_total)})"
 
     await message.reply_text(
@@ -241,6 +244,7 @@ async def cmd_addxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     old_xp = db.get_user_xp(target["user_id"])
     new_total = db.add_xp(target["user_id"], xp_amount)
+    db.log_xp(target["user_id"], xp_amount, 'ручное начисление', 'admin', caller.id)
     level = db.get_level(new_total)
     display = get_display_name(target)
     sign = "+" if xp_amount > 0 else ""
@@ -295,6 +299,7 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         xp_info = ""
         if xp_penalty > 0:
             new_xp_total = db.add_xp(target["user_id"], -xp_penalty)
+            db.log_xp(target["user_id"], -xp_penalty, 'добавлены шаги', 'admin', caller.id)
             level = db.get_level(new_xp_total)
             xp_info = f" -{xp_penalty} XP → {fmt_number(new_xp_total)} XP (Уровень {level})."
         await message.reply_text(
@@ -310,6 +315,7 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     xp_earned = min(steps_count // 500, 40)
     old_xp = db.get_user_xp(target["user_id"])
     new_total = db.add_xp(target["user_id"], xp_earned)
+    db.log_xp(target["user_id"], xp_earned, 'добавлены шаги', 'admin', caller.id)
     level = db.get_level(new_total)
 
     rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
@@ -375,6 +381,7 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     old_xp = db.get_user_xp(target["user_id"])
     if xp_earned > 0:
         new_total = db.add_xp(target["user_id"], xp_earned)
+        db.log_xp(target["user_id"], xp_earned, f'добавлено сало {grams}г', 'admin', caller.id)
         rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
     else:
         new_total = old_xp
@@ -498,6 +505,63 @@ async def cmd_addfood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
 
+async def cmd_xplog(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    caller = update.effective_user
+    if not caller or not _is_privileged(caller.id):
+        await message.reply_text("Недостаточно полномочий. Это для командования.")
+        return
+
+    if not context.args:
+        await message.reply_text("Укажи username: /xplog @username")
+        return
+
+    username = context.args[0].lstrip("@")
+    target = db.get_user_by_username(username)
+    if not target:
+        await message.reply_text(f"Боец @{username} в архивах не найден.")
+        return
+
+    logs = db.get_xp_log(target["user_id"], limit=20)
+    display = get_display_name(target)
+
+    if not logs:
+        await message.reply_text(f"XP-лог для <b>{display}</b> пуст.", parse_mode="HTML")
+        return
+
+    lines = [f"📋 XP-лог: <b>{display}</b>\n"]
+    for entry in logs:
+        created_raw = entry.get("created_at", "")
+        try:
+            dt = datetime.datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
+            dt_msk = dt.astimezone(MOSCOW_TZ)
+            date_str = dt_msk.strftime("%d.%m.%Y %H:%M")
+        except Exception:
+            date_str = created_raw[:16]
+
+        xp_change = entry.get("xp_change", 0)
+        sign = "+" if xp_change >= 0 else ""
+        reason = entry.get("reason", "—")
+        source = entry.get("source", "")
+        admin_id = entry.get("admin_id")
+
+        if source == "admin" and admin_id:
+            admin_user = db.get_user_by_id(admin_id)
+            if admin_user and admin_user.get("username"):
+                source_str = f"админ: @{admin_user['username']}"
+            else:
+                source_str = "админ"
+        else:
+            source_str = "авто"
+
+        lines.append(f"📅 {date_str} | {sign}{xp_change} XP | {reason} | {source_str}")
+
+    await message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
 async def cmd_fullreset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     if not message:
@@ -528,4 +592,5 @@ def build_handlers():
         CommandHandler("addwriting", cmd_addwriting, filters=_group),
         CommandHandler("addfood", cmd_addfood, filters=_group),
         CommandHandler("fullreset", cmd_fullreset, filters=_group),
+        CommandHandler("xplog", cmd_xplog, filters=_group),
     ]

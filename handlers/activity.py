@@ -92,6 +92,7 @@ async def _handle_steps(message, user, context, is_edit: bool = False) -> None:
         xp_earned = min(steps_count // 500, 40)
         old_xp = db.get_user_xp(user.id)
         new_xp = db.add_xp(user.id, xp_earned)
+        db.log_xp(user.id, xp_earned, f'шаги {steps_count}', 'auto')
         rewards = db.check_and_award_level(user.id, old_xp, new_xp)
     except Exception as e:
         import traceback as tb
@@ -145,6 +146,7 @@ async def _handle_exercise(message, user, context, is_edit: bool = False) -> Non
 
     old_xp = db.get_user_xp(user.id)
     new_xp = db.add_xp(user.id, 10)
+    db.log_xp(user.id, 10, 'зарядка', 'auto')
     rewards = db.check_and_award_level(user.id, old_xp, new_xp)
     if rewards:
         name = get_display_name({"user_id": user.id, "username": user.username,
@@ -208,6 +210,7 @@ async def _handle_writing(message, user, context) -> None:
 
     old_xp = db.get_user_xp(user.id)
     new_xp = db.add_xp(user.id, 5)
+    db.log_xp(user.id, 5, 'пост', 'auto')
     rewards = db.check_and_award_level(user.id, old_xp, new_xp)
 
     reply = msg.get(msg.WRITING_ACCEPTED).format(streak=streak)
