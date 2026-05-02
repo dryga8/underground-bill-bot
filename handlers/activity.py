@@ -57,7 +57,7 @@ async def _update_pinned_leaderboard(context: ContextTypes.DEFAULT_TYPE, activit
         print(f"[PINNED_UPDATE] error: {e}")
 
 
-async def _handle_steps(message, user, context) -> None:
+async def _handle_steps(message, user, context, is_edit: bool = False) -> None:
     text = ((message.caption or "") + " " + (message.text or "")).strip() or None
     steps_count = _extract_number_from_text(text)
 
@@ -81,7 +81,8 @@ async def _handle_steps(message, user, context) -> None:
 
     today = get_moscow_date()
     if db.is_activity_recorded(user.id, "steps", today):
-        await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_STEPS))
+        if not is_edit:
+            await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_STEPS))
         return
 
     db.record_steps(user.id, today, steps_count)
@@ -113,7 +114,7 @@ async def _handle_steps(message, user, context) -> None:
     await _update_pinned_leaderboard(context, "steps")
 
 
-async def _handle_exercise(message, user, context) -> None:
+async def _handle_exercise(message, user, context, is_edit: bool = False) -> None:
     combined = (message.caption or "") + " " + (message.text or "")
     if not _has_plus_one(combined):
         return
@@ -135,7 +136,8 @@ async def _handle_exercise(message, user, context) -> None:
 
     today = get_moscow_date()
     if db.is_activity_recorded(user.id, "exercise", today):
-        await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_EXERCISE))
+        if not is_edit:
+            await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_EXERCISE))
         return
 
     db.record_activity(user.id, "exercise", today)
@@ -231,11 +233,12 @@ async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     thread_id = message.message_thread_id
+    is_edit = update.edited_message is not None
 
     if thread_id == STEPS_THREAD_ID and message.photo:
-        await _handle_steps(message, user, context)
+        await _handle_steps(message, user, context, is_edit=is_edit)
     elif thread_id == EXERCISE_THREAD_ID and message.video:
-        await _handle_exercise(message, user, context)
+        await _handle_exercise(message, user, context, is_edit=is_edit)
     elif SALO_THREAD_ID and thread_id == SALO_THREAD_ID and message.photo:
         await _handle_food(message, user, context)
     elif WRITERS_THREAD_ID and thread_id == WRITERS_THREAD_ID:

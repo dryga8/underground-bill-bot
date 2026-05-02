@@ -278,13 +278,30 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await message.reply_text("Количество шагов должно быть числом.")
         return
 
-    if steps_count <= 0:
-        await message.reply_text("Количество шагов должно быть положительным числом.")
+    if steps_count == 0:
+        await message.reply_text("Количество шагов должно быть ненулевым числом.")
         return
 
     target = db.get_user_by_username(username)
     if not target:
         await message.reply_text(f"Боец @{username} в архивах не найден.")
+        return
+
+    display = get_display_name(target)
+
+    if steps_count < 0:
+        new_steps_total = db.add_total_steps(target["user_id"], steps_count)
+        xp_penalty = abs(steps_count) // 500
+        xp_info = ""
+        if xp_penalty > 0:
+            new_xp_total = db.add_xp(target["user_id"], -xp_penalty)
+            level = db.get_level(new_xp_total)
+            xp_info = f" -{xp_penalty} XP → {fmt_number(new_xp_total)} XP (Уровень {level})."
+        await message.reply_text(
+            f"<b>{display}</b> — убрано {fmt_number(abs(steps_count))} шагов. "
+            f"total_steps → {fmt_number(new_steps_total)}.{xp_info}",
+            parse_mode="HTML",
+        )
         return
 
     today = get_moscow_date()
@@ -294,7 +311,6 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     old_xp = db.get_user_xp(target["user_id"])
     new_total = db.add_xp(target["user_id"], xp_earned)
     level = db.get_level(new_total)
-    display = get_display_name(target)
 
     rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
 
