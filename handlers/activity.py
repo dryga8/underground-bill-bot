@@ -119,7 +119,7 @@ async def _handle_exercise(message, user, context, is_edit: bool = False) -> Non
     if not _has_plus_one(combined):
         return
 
-    if message.video and message.video.duration < 300:
+    if message.video and message.video.duration < 60:
         await message.reply_text(msg.get(msg.TOO_SHORT_VIDEO))
         return
 
