@@ -118,7 +118,7 @@ async def _handle_exercise(message, user, context) -> None:
     if not _has_plus_one(combined):
         return
 
-    if message.video and message.video.duration < 60:
+    if message.video and message.video.duration < 300:
         await message.reply_text(msg.get(msg.TOO_SHORT_VIDEO))
         return
 
@@ -204,8 +204,17 @@ async def _handle_writing(message, user, context) -> None:
         await message.reply_text(msg.get(msg.WRITING_ALREADY))
         return
 
+    old_xp = db.get_user_xp(user.id)
+    new_xp = db.add_xp(user.id, 5)
+    rewards = db.check_and_award_level(user.id, old_xp, new_xp)
+
     reply = msg.get(msg.WRITING_ACCEPTED).format(streak=streak)
     await message.reply_text(reply)
+
+    if rewards:
+        name = get_display_name({"user_id": user.id, "username": user.username,
+                                  "first_name": user.first_name, "last_name": user.last_name})
+        await send_level_up_notifications(context, name, rewards)
 
 
 async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

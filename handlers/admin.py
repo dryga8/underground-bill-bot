@@ -151,9 +151,20 @@ async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     display = get_display_name(target)
     label = _ACTIVITY_LABEL[activity_type]
 
+    xp_per_day = 10 if activity_type == "exercise" else 20
+    xp_earned = xp_per_day * added
+    xp_info = ""
+    if xp_earned > 0:
+        old_xp = db.get_user_xp(target["user_id"])
+        new_total = db.add_xp(target["user_id"], xp_earned)
+        rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
+        xp_info = f" +{xp_earned} XP → {fmt_number(new_total)} XP (Уровень {get_level(new_total)})"
+        if rewards:
+            await send_level_up_notifications(context, display, rewards)
+
     await message.reply_text(
         f"{msg.get(msg.DAYS_ADDED)}\n\n"
-        f"<b>{display}</b> — добавлено {added} дн. ({label}).",
+        f"<b>{display}</b> — добавлено {added} дн. ({label}).{xp_info}",
         parse_mode="HTML",
     )
 
@@ -184,9 +195,16 @@ async def cmd_removedays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     display = get_display_name(target)
     label = _ACTIVITY_LABEL[activity_type]
 
+    xp_per_day = 10 if activity_type == "exercise" else 20
+    xp_penalty = xp_per_day * removed
+    xp_info = ""
+    if xp_penalty > 0:
+        new_total = db.add_xp(target["user_id"], -xp_penalty)
+        xp_info = f" -{xp_penalty} XP → {fmt_number(new_total)} XP (Уровень {get_level(new_total)})"
+
     await message.reply_text(
         f"{msg.get(msg.DAYS_REMOVED)}\n\n"
-        f"<b>{display}</b> — удалено {removed} дн. ({label}).",
+        f"<b>{display}</b> — удалено {removed} дн. ({label}).{xp_info}",
         parse_mode="HTML",
     )
 
