@@ -324,8 +324,8 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await message.reply_text("Граммы должны быть числом.")
         return
 
-    if grams <= 0:
-        await message.reply_text("Количество грамм должно быть положительным.")
+    if grams == 0:
+        await message.reply_text("Граммы должны быть ненулевым числом.")
         return
 
     target = db.get_user_by_username(username)
@@ -333,7 +333,7 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await message.reply_text(f"Боец @{username} в архивах не найден.")
         return
 
-    if db.is_jailed(target["user_id"], "salo"):
+    if grams > 0 and db.is_jailed(target["user_id"], "salo"):
         await message.reply_text(
             f"<b>{get_display_name(target)}</b> в карцере по марафону сала. "
             "Записи не принимаются до конца месяца.",
@@ -345,10 +345,24 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     db.add_salo(target["user_id"], grams, now_msk.month, now_msk.year)
     display = get_display_name(target)
 
+    xp_earned = grams // 20
+    old_xp = db.get_user_xp(target["user_id"])
+    new_total_xp = db.add_xp(target["user_id"], xp_earned)
+    db.log_xp(target["user_id"], xp_earned, "сало (admin)", "admin", caller.id)
+    level = get_level(new_total_xp)
+
+    action_text = f"добавлено {grams}г сала" if grams > 0 else f"убрано {abs(grams)}г сала"
+    xp_sign = "+" if xp_earned >= 0 else ""
+
     await message.reply_text(
-        f"<b>{display}</b> — добавлено {grams}г сала.",
+        f"<b>{display}</b> — {action_text}. "
+        f"{xp_sign}{xp_earned} XP → {fmt_number(new_total_xp)} XP (Уровень {level}).",
         parse_mode="HTML",
     )
+
+    rewards = db.check_and_award_level(target["user_id"], old_xp, new_total_xp)
+    if rewards:
+        await send_level_up_notifications(context, display, rewards)
 
     if PINNED_SALO_MESSAGE_ID:
         from handlers.stats import build_salo_leaderboard_text

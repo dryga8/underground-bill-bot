@@ -369,10 +369,10 @@ def add_salo(user_id: int, grams: int, month: int, year: int) -> None:
     }).execute()
     existing = _client.table("total_salo").select("all_time_grams").eq("user_id", user_id).limit(1).execute()
     if existing.data:
-        new_total = (existing.data[0]["all_time_grams"] or 0) + grams
+        new_total = max(0, (existing.data[0]["all_time_grams"] or 0) + grams)
         _client.table("total_salo").update({"all_time_grams": new_total}).eq("user_id", user_id).execute()
     else:
-        _client.table("total_salo").upsert({"user_id": user_id, "all_time_grams": grams}).execute()
+        _client.table("total_salo").upsert({"user_id": user_id, "all_time_grams": max(0, grams)}).execute()
 
 
 def get_monthly_salo(user_id: int, month: int, year: int) -> int:
