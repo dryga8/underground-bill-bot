@@ -272,15 +272,6 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     display = get_display_name(target)
 
-    if steps_count < 0:
-        new_steps_total = db.add_total_steps(target["user_id"], steps_count)
-        await message.reply_text(
-            f"<b>{display}</b> — убрано {fmt_number(abs(steps_count))} шагов. "
-            f"Всего шагов: {fmt_number(new_steps_total)}.",
-            parse_mode="HTML",
-        )
-        return
-
     today = get_moscow_date()
     db.add_steps_for_date(target["user_id"], today, steps_count)
 
@@ -295,9 +286,15 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     db.log_xp(target["user_id"], xp_earned, "шаги (admin)", "admin", caller.id)
     level = get_level(new_total_xp)
 
+    if steps_count > 0:
+        action_text = f"{fmt_number(steps_count)} шагов за сегодня записано"
+    else:
+        action_text = f"убрано {fmt_number(abs(steps_count))} шагов за сегодня"
+    xp_sign = "+" if xp_earned >= 0 else ""
+
     await message.reply_text(
-        f"<b>{display}</b> — {fmt_number(steps_count)} шагов за сегодня записано. "
-        f"+{xp_earned} XP → {fmt_number(new_total_xp)} XP (Уровень {level}).",
+        f"<b>{display}</b> — {action_text}. "
+        f"{xp_sign}{xp_earned} XP → {fmt_number(new_total_xp)} XP (Уровень {level}).",
         parse_mode="HTML",
     )
 
