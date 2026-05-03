@@ -123,7 +123,6 @@ def _parse_days_args(args: list[str]) -> tuple[str, str, int] | None:
 
 
 _ACTIVITY_LABEL = {"steps": "шаги", "exercise": "зарядка"}
-_XP_REASON_DAYS = {"steps": "добавлены дни шагов", "exercise": "добавлены дни зарядки"}
 
 
 async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -152,21 +151,9 @@ async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     display = get_display_name(target)
     label = _ACTIVITY_LABEL[activity_type]
 
-    xp_per_day = 10 if activity_type == "exercise" else 20
-    xp_earned = xp_per_day * added
-    xp_info = ""
-    if xp_earned > 0:
-        old_xp = db.get_user_xp(target["user_id"])
-        new_total = db.add_xp(target["user_id"], xp_earned)
-        db.log_xp(target["user_id"], xp_earned, _XP_REASON_DAYS[activity_type], 'admin', caller.id)
-        rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
-        xp_info = f" +{xp_earned} XP → {fmt_number(new_total)} XP (Уровень {get_level(new_total)})"
-        if rewards:
-            await send_level_up_notifications(context, display, rewards)
-
     await message.reply_text(
         f"{msg.get(msg.DAYS_ADDED)}\n\n"
-        f"<b>{display}</b> — добавлено {added} дн. ({label}).{xp_info}",
+        f"<b>{display}</b> — добавлено {added} дн. ({label}).",
         parse_mode="HTML",
     )
 
@@ -197,17 +184,9 @@ async def cmd_removedays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     display = get_display_name(target)
     label = _ACTIVITY_LABEL[activity_type]
 
-    xp_per_day = 10 if activity_type == "exercise" else 20
-    xp_penalty = xp_per_day * removed
-    xp_info = ""
-    if xp_penalty > 0:
-        new_total = db.add_xp(target["user_id"], -xp_penalty)
-        db.log_xp(target["user_id"], -xp_penalty, _XP_REASON_DAYS[activity_type], 'admin', caller.id)
-        xp_info = f" -{xp_penalty} XP → {fmt_number(new_total)} XP (Уровень {get_level(new_total)})"
-
     await message.reply_text(
         f"{msg.get(msg.DAYS_REMOVED)}\n\n"
-        f"<b>{display}</b> — удалено {removed} дн. ({label}).{xp_info}",
+        f"<b>{display}</b> — удалено {removed} дн. ({label}).",
         parse_mode="HTML",
     )
 
@@ -245,13 +224,13 @@ async def cmd_addxp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     old_xp = db.get_user_xp(target["user_id"])
     new_total = db.add_xp(target["user_id"], xp_amount)
     db.log_xp(target["user_id"], xp_amount, 'ручное начисление', 'admin', caller.id)
-    level = db.get_level(new_total)
+    level = get_level(new_total)
     display = get_display_name(target)
     sign = "+" if xp_amount > 0 else ""
 
     await message.reply_text(
         f"{msg.get(msg.XP_ADDED)}\n\n"
-        f"<b>{display}</b> {sign}{xp_amount} XP → {new_total} XP (Уровень {level}).",
+        f"<b>{display}</b> {sign}{xp_amount} XP → {fmt_number(new_total)} XP (Уровень {level}).",
         parse_mode="HTML",
     )
 
@@ -295,16 +274,9 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if steps_count < 0:
         new_steps_total = db.add_total_steps(target["user_id"], steps_count)
-        xp_penalty = abs(steps_count) // 500
-        xp_info = ""
-        if xp_penalty > 0:
-            new_xp_total = db.add_xp(target["user_id"], -xp_penalty)
-            db.log_xp(target["user_id"], -xp_penalty, 'добавлены шаги', 'admin', caller.id)
-            level = db.get_level(new_xp_total)
-            xp_info = f" -{xp_penalty} XP → {fmt_number(new_xp_total)} XP (Уровень {level})."
         await message.reply_text(
             f"<b>{display}</b> — убрано {fmt_number(abs(steps_count))} шагов. "
-            f"total_steps → {fmt_number(new_steps_total)}.{xp_info}",
+            f"Всего шагов: {fmt_number(new_steps_total)}.",
             parse_mode="HTML",
         )
         return
@@ -312,26 +284,24 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     today = get_moscow_date()
     db.set_steps_for_date(target["user_id"], today, steps_count)
 
-    xp_earned = min(steps_count // 500, 40)
-    old_xp = db.get_user_xp(target["user_id"])
-    new_total = db.add_xp(target["user_id"], xp_earned)
-    db.log_xp(target["user_id"], xp_earned, 'добавлены шаги', 'admin', caller.id)
-    level = db.get_level(new_total)
-
-    rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
-
     try:
         db.add_total_steps(target["user_id"], steps_count)
     except Exception as e:
         print(f"[ADDSTEPS] ERROR in add_total_steps: {type(e).__name__}: {e}")
 
+    xp_earned = min(steps_count // 500, 40)
+    old_xp = db.get_user_xp(target["user_id"])
+    new_total_xp = db.add_xp(target["user_id"], xp_earned)
+    db.log_xp(target["user_id"], xp_earned, "шаги (admin)", "admin", caller.id)
+    level = get_level(new_total_xp)
+
     await message.reply_text(
-        f"{msg.get(msg.DAYS_ADDED)}\n\n"
-        f"<b>{display}</b> — {fmt_number(steps_count)} шагов за сегодня. "
-        f"+{xp_earned} XP → {fmt_number(new_total)} XP (Уровень {level}).",
+        f"<b>{display}</b> — {fmt_number(steps_count)} шагов за сегодня записано. "
+        f"+{xp_earned} XP → {fmt_number(new_total_xp)} XP (Уровень {level}).",
         parse_mode="HTML",
     )
 
+    rewards = db.check_and_award_level(target["user_id"], old_xp, new_total_xp)
     if rewards:
         await send_level_up_notifications(context, display, rewards)
 
@@ -376,27 +346,12 @@ async def cmd_addsalo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     now_msk = datetime.datetime.now(MOSCOW_TZ)
     db.add_salo(target["user_id"], grams, now_msk.month, now_msk.year)
-
-    xp_earned = grams // 20
-    old_xp = db.get_user_xp(target["user_id"])
-    if xp_earned > 0:
-        new_total = db.add_xp(target["user_id"], xp_earned)
-        db.log_xp(target["user_id"], xp_earned, f'добавлено сало {grams}г', 'admin', caller.id)
-        rewards = db.check_and_award_level(target["user_id"], old_xp, new_total)
-    else:
-        new_total = old_xp
-        rewards = []
-    level = get_level(new_total)
     display = get_display_name(target)
 
     await message.reply_text(
-        f"{msg.get(msg.SALO_ADDED).format(grams=grams, xp=xp_earned)}\n\n"
-        f"<b>{display}</b> — итого {fmt_number(new_total)} XP (Уровень {level}).",
+        f"<b>{display}</b> — добавлено {grams}г сала.",
         parse_mode="HTML",
     )
-
-    if rewards:
-        await send_level_up_notifications(context, display, rewards)
 
     if PINNED_SALO_MESSAGE_ID:
         from handlers.stats import build_salo_leaderboard_text
