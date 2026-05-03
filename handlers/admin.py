@@ -282,7 +282,7 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     today = get_moscow_date()
-    db.set_steps_for_date(target["user_id"], today, steps_count)
+    db.add_steps_for_date(target["user_id"], today, steps_count)
 
     try:
         db.add_total_steps(target["user_id"], steps_count)

@@ -664,6 +664,32 @@ def set_steps_for_date(user_id: int, activity_date, steps_count: int) -> bool:
         return True
 
 
+def add_steps_for_date(user_id: int, activity_date, steps_count: int) -> None:
+    """Add steps on top of existing record for the date, or insert if none."""
+    existing = (
+        _client.table("activities")
+        .select("id", "steps_count")
+        .eq("user_id", user_id)
+        .eq("activity_type", "steps")
+        .eq("activity_date", activity_date.isoformat())
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        row = existing.data[0]
+        new_count = (row.get("steps_count") or 0) + steps_count
+        _client.table("activities").update({"steps_count": new_count}).eq("id", row["id"]).execute()
+    else:
+        _client.table("activities").insert({
+            "user_id": user_id,
+            "activity_type": "steps",
+            "activity_date": activity_date.isoformat(),
+            "month": activity_date.month,
+            "year": activity_date.year,
+            "steps_count": steps_count,
+        }).execute()
+
+
 # ---------------------------------------------------------------------------
 # Full reset (owner only)
 # ---------------------------------------------------------------------------
