@@ -57,7 +57,7 @@ async def _update_pinned_leaderboard(context: ContextTypes.DEFAULT_TYPE, activit
         print(f"[PINNED_UPDATE] error: {e}")
 
 
-async def _handle_steps(message, user, context, is_edit: bool = False) -> None:
+async def _handle_steps(message, user, context, is_edit: bool = False, activity_date=None) -> None:
     text = ((message.caption or "") + " " + (message.text or "")).strip() or None
     steps_count = _extract_number_from_text(text)
 
@@ -79,7 +79,7 @@ async def _handle_steps(message, user, context, is_edit: bool = False) -> None:
         await message.reply_text(msg.get(msg.JAILED_TRY))
         return
 
-    today = get_moscow_date()
+    today = activity_date if activity_date is not None else get_moscow_date()
     if db.is_activity_recorded(user.id, "steps", today):
         if not is_edit:
             await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_STEPS))
@@ -115,7 +115,7 @@ async def _handle_steps(message, user, context, is_edit: bool = False) -> None:
     await _update_pinned_leaderboard(context, "steps")
 
 
-async def _handle_exercise(message, user, context, is_edit: bool = False) -> None:
+async def _handle_exercise(message, user, context, is_edit: bool = False, activity_date=None) -> None:
     combined = (message.caption or "") + " " + (message.text or "")
     if not _has_plus_one(combined):
         return
@@ -135,7 +135,7 @@ async def _handle_exercise(message, user, context, is_edit: bool = False) -> Non
         await message.reply_text(msg.get(msg.JAILED_TRY))
         return
 
-    today = get_moscow_date()
+    today = activity_date if activity_date is not None else get_moscow_date()
     if db.is_activity_recorded(user.id, "exercise", today):
         if not is_edit:
             await message.reply_text(msg.get(msg.ALREADY_SUBMITTED_EXERCISE))
@@ -238,10 +238,14 @@ async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     thread_id = message.message_thread_id
     is_edit = update.edited_message is not None
 
+    activity_date = None
+    if is_edit and message.date:
+        activity_date = message.date.astimezone(MOSCOW_TZ).date()
+
     if thread_id == STEPS_THREAD_ID and message.photo:
-        await _handle_steps(message, user, context, is_edit=is_edit)
+        await _handle_steps(message, user, context, is_edit=is_edit, activity_date=activity_date)
     elif thread_id == EXERCISE_THREAD_ID and message.video:
-        await _handle_exercise(message, user, context, is_edit=is_edit)
+        await _handle_exercise(message, user, context, is_edit=is_edit, activity_date=activity_date)
     elif SALO_THREAD_ID and thread_id == SALO_THREAD_ID and message.photo:
         await _handle_food(message, user, context)
     elif WRITERS_THREAD_ID and thread_id == WRITERS_THREAD_ID:
