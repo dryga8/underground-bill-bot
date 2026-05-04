@@ -280,7 +280,7 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as e:
         print(f"[ADDSTEPS] ERROR in add_total_steps: {type(e).__name__}: {e}")
 
-    xp_earned = min(steps_count // 500, 40)
+    xp_earned = max(-40, min(steps_count // 500, 40))
     old_xp = db.get_user_xp(target["user_id"])
     new_total_xp = db.add_xp(target["user_id"], xp_earned)
     db.log_xp(target["user_id"], xp_earned, "шаги (admin)", "admin", caller.id)
