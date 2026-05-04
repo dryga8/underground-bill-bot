@@ -111,7 +111,7 @@ def _parse_days_args(args: list[str]) -> tuple[str, str, int] | None:
         return None
     username = args[0].lstrip("@")
     activity_type = args[1].lower()
-    if activity_type not in ("steps", "exercise"):
+    if activity_type not in ("steps", "exercise", "writing"):
         return None
     try:
         days = int(args[2])
@@ -122,7 +122,7 @@ def _parse_days_args(args: list[str]) -> tuple[str, str, int] | None:
     return username, activity_type, days
 
 
-_ACTIVITY_LABEL = {"steps": "шаги", "exercise": "зарядка"}
+_ACTIVITY_LABEL = {"steps": "шаги", "exercise": "зарядка", "writing": "посты"}
 
 
 async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -170,7 +170,7 @@ async def cmd_removedays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     parsed = _parse_days_args(context.args or [])
     if not parsed:
-        await message.reply_text("Формат: /removedays @username steps 3\nТипы: steps, exercise")
+        await message.reply_text("Формат: /removedays @username steps 3\nТипы: steps, exercise, writing")
         return
 
     username, activity_type, days = parsed
@@ -180,8 +180,20 @@ async def cmd_removedays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     now_msk = datetime.datetime.now(MOSCOW_TZ)
-    removed = db.remove_days(target["user_id"], activity_type, days, now_msk.month, now_msk.year)
     display = get_display_name(target)
+
+    if activity_type == "writing":
+        db.adjust_writing_streak(target["user_id"], -days, now_msk.month, now_msk.year)
+        xp_penalty = days * 5
+        db.add_xp(target["user_id"], -xp_penalty)
+        db.log_xp(target["user_id"], -xp_penalty, "посты (admin)", "admin", caller.id)
+        await message.reply_text(
+            f"<b>{display}</b> — удалено {days} дн. постов. -{xp_penalty} XP.",
+            parse_mode="HTML",
+        )
+        return
+
+    removed = db.remove_days(target["user_id"], activity_type, days, now_msk.month, now_msk.year)
     label = _ACTIVITY_LABEL[activity_type]
 
     await message.reply_text(
