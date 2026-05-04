@@ -680,13 +680,15 @@ def add_steps_for_date(user_id: int, activity_date, steps_count: int) -> None:
         new_count = max(0, (row.get("steps_count") or 0) + steps_count)
         _client.table("activities").update({"steps_count": new_count}).eq("id", row["id"]).execute()
     else:
+        if steps_count < 0:
+            return
         _client.table("activities").insert({
             "user_id": user_id,
             "activity_type": "steps",
             "activity_date": activity_date.isoformat(),
             "month": activity_date.month,
             "year": activity_date.year,
-            "steps_count": max(0, steps_count),
+            "steps_count": steps_count,
         }).execute()
 
 
