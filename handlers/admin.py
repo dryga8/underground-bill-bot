@@ -137,7 +137,7 @@ async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     parsed = _parse_days_args(context.args or [])
     if not parsed:
-        await message.reply_text("Формат: /adddays @username steps 3\nТипы: steps, exercise")
+        await message.reply_text("Формат: /adddays @username steps 3\nТипы: steps, exercise, writing")
         return
 
     username, activity_type, days = parsed
@@ -147,8 +147,24 @@ async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     now_msk = datetime.datetime.now(MOSCOW_TZ)
-    added = db.add_days(target["user_id"], activity_type, days, now_msk.month, now_msk.year)
     display = get_display_name(target)
+
+    if activity_type == "writing":
+        db.adjust_writing_streak(target["user_id"], days, now_msk.month, now_msk.year)
+        xp_earned = days * 5
+        old_xp = db.get_user_xp(target["user_id"])
+        new_total_xp = db.add_xp(target["user_id"], xp_earned)
+        db.log_xp(target["user_id"], xp_earned, "посты (admin)", "admin", caller.id)
+        await message.reply_text(
+            f"<b>{display}</b> — добавлено {days} дн. постов. +{xp_earned} XP.",
+            parse_mode="HTML",
+        )
+        rewards = db.check_and_award_level(target["user_id"], old_xp, new_total_xp)
+        if rewards:
+            await send_level_up_notifications(context, display, rewards)
+        return
+
+    added = db.add_days(target["user_id"], activity_type, days, now_msk.month, now_msk.year)
     label = _ACTIVITY_LABEL[activity_type]
 
     await message.reply_text(
