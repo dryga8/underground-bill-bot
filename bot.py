@@ -9,7 +9,7 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Cont
 import database as db
 import messages as msg
 from config import BOT_TOKEN, GROUP_ID
-from handlers import activity, report, stats, admin, welcome, scheduler, news
+from handlers import activity, report, stats, admin, welcome, scheduler, news, private
 from utils import get_display_name
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -113,6 +113,9 @@ def main() -> None:
     db.cleanup_old_rewards()
 
     app = Application.builder().token(BOT_TOKEN).build()
+
+    for handler in private.build_handlers():
+        app.add_handler(handler)
 
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
