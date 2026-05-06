@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 async def _post_init(application: Application) -> None:
     await application.bot.set_my_commands([
+        BotCommand("start",       "Активировать бота"),
         BotCommand("help",        "Справка по марафонам"),
         BotCommand("stats",       "Моё досье"),
         BotCommand("topsteps",    "Лидерборд шагов"),
