@@ -300,13 +300,9 @@ async def cmd_addsteps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     display = get_display_name(target)
 
-    today = get_moscow_date()
-    db.add_steps_for_date(target["user_id"], today, steps_count)
-
-    try:
-        db.add_total_steps(target["user_id"], steps_count)
-    except Exception as e:
-        print(f"[ADDSTEPS] ERROR in add_total_steps: {type(e).__name__}: {e}")
+    now_msk = datetime.datetime.now(MOSCOW_TZ)
+    db.add_monthly_steps(target["user_id"], steps_count, now_msk.month, now_msk.year)
+    db.add_total_steps(target["user_id"], steps_count)
 
     xp_earned = max(-40, min(steps_count // 500, 40))
     old_xp = db.get_user_xp(target["user_id"])

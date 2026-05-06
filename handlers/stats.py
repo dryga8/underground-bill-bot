@@ -40,7 +40,8 @@ def build_activity_leaderboard(activity_type: str, month: int, year: int) -> str
             if db.is_jailed(r["user"]["user_id"], "steps"):
                 lines.append(f"{name} — 🚫")
             else:
-                lines.append(f"{name} — {pluralize_days(r['days'])} / {fmt_number(r['steps_sum'])} шагов")
+                total = db.get_monthly_steps_fast(r["user"]["user_id"], month, year)
+                lines.append(f"{name} — {pluralize_days(r['days'])} / {fmt_number(total)} шагов")
         return "\n".join(lines) if lines else "Пока никто не отметился."
     else:
         rows = db.get_activity_top(activity_type, month, year)
@@ -106,7 +107,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     steps_days_str = "🚫" if steps_jailed else pluralize_days(stats["steps"])
 
-    monthly_steps = db.get_monthly_steps(uid, month, year)
+    monthly_steps = db.get_monthly_steps_fast(uid, month, year)
     total_steps = db.get_total_steps(uid)
     xp = db.get_user_xp(uid)
     level = db.get_level(xp)

@@ -111,6 +111,7 @@ async def cmd_admin(update: Update, _) -> None:
 def main() -> None:
     import database as db
     db.cleanup_old_rewards()
+    db.migrate_monthly_steps()
 
     app = Application.builder().token(BOT_TOKEN).build()
 

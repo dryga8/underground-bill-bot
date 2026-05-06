@@ -635,6 +635,74 @@ def get_all_admins() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Monthly steps (denormalized counter)
+# ---------------------------------------------------------------------------
+
+def get_monthly_steps_fast(user_id: int, month: int, year: int) -> int:
+    res = (
+        _client.table("monthly_steps")
+        .select("total_steps_month")
+        .eq("user_id", user_id)
+        .eq("month", month)
+        .eq("year", year)
+        .limit(1)
+        .execute()
+    )
+    return res.data[0]["total_steps_month"] if res.data else 0
+
+
+def add_monthly_steps(user_id: int, steps: int, month: int, year: int) -> int:
+    existing = (
+        _client.table("monthly_steps")
+        .select("total_steps_month")
+        .eq("user_id", user_id)
+        .eq("month", month)
+        .eq("year", year)
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        new_total = max(0, (existing.data[0]["total_steps_month"] or 0) + steps)
+        _client.table("monthly_steps").update({"total_steps_month": new_total}).eq("user_id", user_id).eq("month", month).eq("year", year).execute()
+    else:
+        if steps <= 0:
+            return 0
+        new_total = steps
+        _client.table("monthly_steps").insert({
+            "user_id": user_id,
+            "month": month,
+            "year": year,
+            "total_steps_month": new_total,
+        }).execute()
+    return new_total
+
+
+def migrate_monthly_steps() -> None:
+    """Migrate steps data from activities to monthly_steps. Idempotent — safe to run on every startup."""
+    res = (
+        _client.table("activities")
+        .select("user_id, month, year, steps_count")
+        .eq("activity_type", "steps")
+        .execute()
+    )
+    from collections import defaultdict
+    agg: dict[tuple, int] = defaultdict(int)
+    for row in res.data:
+        key = (row["user_id"], row["month"], row["year"])
+        agg[key] += (row.get("steps_count") or 0)
+
+    for (uid, month, year), total in agg.items():
+        _client.table("monthly_steps").upsert({
+            "user_id": uid,
+            "month": month,
+            "year": year,
+            "total_steps_month": total,
+        }).execute()
+
+    print(f"[MIGRATE] monthly_steps: processed {len(agg)} (user, month, year) groups")
+
+
+# ---------------------------------------------------------------------------
 # Steps (admin override)
 # ---------------------------------------------------------------------------
 

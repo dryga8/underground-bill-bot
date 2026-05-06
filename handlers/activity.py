@@ -86,6 +86,7 @@ async def _handle_steps(message, user, context, is_edit: bool = False, activity_
         return
 
     db.record_steps(user.id, today, steps_count)
+    db.add_monthly_steps(user.id, steps_count, today.month, today.year)
 
     rewards = []
     try:
