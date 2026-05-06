@@ -23,6 +23,9 @@ _client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Users
 # ---------------------------------------------------------------------------
 
+# SQL migration: ALTER TABLE users ADD COLUMN IF NOT EXISTS bot_started BOOLEAN DEFAULT FALSE;
+
+
 def upsert_user(user_id: int, username: str | None, first_name: str | None, last_name: str | None) -> None:
     _client.table("users").upsert({
         "user_id": user_id,
@@ -30,6 +33,10 @@ def upsert_user(user_id: int, username: str | None, first_name: str | None, last
         "first_name": first_name,
         "last_name": last_name,
     }).execute()
+
+
+def set_bot_started(user_id: int) -> None:
+    _client.table("users").update({"bot_started": True}).eq("user_id", user_id).execute()
 
 
 def get_user_by_username(username: str) -> dict | None:

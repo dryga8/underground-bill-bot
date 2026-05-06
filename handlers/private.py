@@ -37,6 +37,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     u = update.effective_user
     if u:
         db.upsert_user(u.id, u.username, u.first_name, u.last_name)
+        db.set_bot_started(u.id)
     await message.reply_text(msg.get(msg.PM_WELCOME), reply_markup=_PM_KEYBOARD, parse_mode="HTML")
 
 

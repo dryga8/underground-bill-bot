@@ -3,13 +3,13 @@ import logging
 import traceback
 import pytz
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import BotCommand, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 import database as db
 import messages as msg
 from config import BOT_TOKEN, GROUP_ID
-from handlers import activity, report, stats, admin, welcome, scheduler, news, private
+from handlers import activity, report, stats, admin, welcome, scheduler, news, private, broadcast
 from utils import get_display_name
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -19,6 +19,19 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+async def _post_init(application: Application) -> None:
+    await application.bot.set_my_commands([
+        BotCommand("help",        "Справка по марафонам"),
+        BotCommand("stats",       "Моё досье"),
+        BotCommand("topsteps",    "Лидерборд шагов"),
+        BotCommand("topexercise", "Лидерборд зарядки"),
+        BotCommand("topsalo",     "Лидерборд сала"),
+        BotCommand("topxp",       "Лидерборд XP"),
+        BotCommand("report",      "Пожаловаться на участника"),
+        BotCommand("admin",       "Позвать командование"),
+    ])
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -113,7 +126,7 @@ def main() -> None:
     db.cleanup_old_rewards()
     db.migrate_monthly_steps()
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
 
     for handler in private.build_handlers():
         app.add_handler(handler)
@@ -133,6 +146,9 @@ def main() -> None:
         app.add_handler(handler)
 
     for handler in admin.build_handlers():
+        app.add_handler(handler)
+
+    for handler in broadcast.build_handlers():
         app.add_handler(handler)
 
     app.add_handler(welcome.build_handler())
