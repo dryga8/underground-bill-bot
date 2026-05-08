@@ -219,15 +219,17 @@ def build_handlers():
         CommandHandler("notify",    cmd_notify,    filters=_private),
         CommandHandler("dm",        cmd_dm,        filters=_private),
         MessageHandler(
-            _private
-            & (filters.TEXT | filters.PHOTO | filters.VIDEO | filters.Document.ALL)
-            & ~filters.COMMAND,
+            _private & ~filters.COMMAND & (
+                filters.TEXT | filters.PHOTO | filters.VIDEO
+                | filters.Document.ALL | filters.AUDIO | filters.VOICE
+            ),
             handle_broadcast_message,
         ),
         MessageHandler(
-            _private
-            & (filters.TEXT | filters.PHOTO | filters.VIDEO | filters.Document.ALL)
-            & ~filters.COMMAND,
+            _private & ~filters.COMMAND & (
+                filters.TEXT | filters.PHOTO | filters.VIDEO
+                | filters.Document.ALL | filters.AUDIO | filters.VOICE
+            ),
             handle_dm_message,
         ),
     ]

@@ -129,6 +129,9 @@ def main() -> None:
 
     app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
 
+    for handler in broadcast.build_handlers():
+        app.add_handler(handler)
+
     for handler in private.build_handlers():
         app.add_handler(handler)
 
@@ -147,9 +150,6 @@ def main() -> None:
         app.add_handler(handler)
 
     for handler in admin.build_handlers():
-        app.add_handler(handler)
-
-    for handler in broadcast.build_handlers():
         app.add_handler(handler)
 
     app.add_handler(welcome.build_handler())
