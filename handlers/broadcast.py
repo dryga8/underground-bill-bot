@@ -56,9 +56,13 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await message.reply_text(_MSG_ASK)
 
 
-async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not context.user_data.get(_WAIT_BROADCAST):
-        return
+async def handle_pending_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info(
+        "[BROADCAST] handle_pending_message: wait_broadcast=%s, wait_dm=%s",
+        context.user_data.get(_WAIT_BROADCAST),
+        context.user_data.get(_WAIT_DM),
+    )
+
     message = update.effective_message
     if not message:
         return
@@ -66,57 +70,48 @@ async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT
     if not u or not _is_privileged(u.id):
         return
 
-    context.user_data[_WAIT_BROADCAST] = False
+    if context.user_data.get(_WAIT_BROADCAST):
+        context.user_data[_WAIT_BROADCAST] = False
 
-    kwargs: dict = {
-        "chat_id": GROUP_ID,
-        "from_chat_id": message.chat_id,
-        "message_id": message.message_id,
-    }
-    if NEWS_THREAD_ID:
-        kwargs["message_thread_id"] = NEWS_THREAD_ID
-    sent = await context.bot.copy_message(**kwargs)
-    logger.info("[BROADCAST] media sent by %s, message_id=%s", u.id, sent.message_id)
-    await message.reply_text(_MSG_SENT.format(message_id=sent.message_id))
+        kwargs: dict = {
+            "chat_id": GROUP_ID,
+            "from_chat_id": message.chat_id,
+            "message_id": message.message_id,
+        }
+        if NEWS_THREAD_ID:
+            kwargs["message_thread_id"] = NEWS_THREAD_ID
+        sent = await context.bot.copy_message(**kwargs)
+        logger.info("[BROADCAST] media sent by %s, message_id=%s", u.id, sent.message_id)
+        await message.reply_text(_MSG_SENT.format(message_id=sent.message_id))
 
+    elif context.user_data.get(_WAIT_DM):
+        context.user_data[_WAIT_DM] = False
+        uid = context.user_data.pop(_WAIT_DM_USER_ID, None)
+        display = context.user_data.pop(_WAIT_DM_DISPLAY, "пользователь")
+        bot_ok = context.user_data.pop(_WAIT_DM_BOT_OK, False)
 
-async def handle_dm_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not context.user_data.get(_WAIT_DM):
-        return
-    message = update.effective_message
-    if not message:
-        return
-    u = update.effective_user
-    if not u or not _is_privileged(u.id):
-        return
+        if not uid:
+            await message.reply_text("⚠️ Не найден получатель. Начни заново.")
+            return
 
-    context.user_data[_WAIT_DM] = False
-    uid = context.user_data.pop(_WAIT_DM_USER_ID, None)
-    display = context.user_data.pop(_WAIT_DM_DISPLAY, "пользователь")
-    bot_ok = context.user_data.pop(_WAIT_DM_BOT_OK, False)
+        if not bot_ok:
+            await message.reply_text(_MSG_NO_BOT_START)
+            return
 
-    if not uid:
-        await message.reply_text("⚠️ Не найден получатель. Начни заново.")
-        return
-
-    if not bot_ok:
-        await message.reply_text(_MSG_NO_BOT_START)
-        return
-
-    try:
-        await context.bot.copy_message(
-            chat_id=uid,
-            from_chat_id=message.chat_id,
-            message_id=message.message_id,
-        )
-        logger.info("[BROADCAST] DM (copy) sent to user_id=%s", uid)
-        await message.reply_text(_MSG_DM_SENT.format(display=display))
-    except Exception as e:
-        if "Forbidden" in str(e):
-            await message.reply_text(_MSG_FORBIDDEN)
-        else:
-            logger.error("[BROADCAST] DM error for user_id=%s: %s", uid, e)
-            await message.reply_text(f"⚠️ Ошибка отправки: {e}")
+        try:
+            await context.bot.copy_message(
+                chat_id=uid,
+                from_chat_id=message.chat_id,
+                message_id=message.message_id,
+            )
+            logger.info("[BROADCAST] DM (copy) sent to user_id=%s", uid)
+            await message.reply_text(_MSG_DM_SENT.format(display=display))
+        except Exception as e:
+            if "Forbidden" in str(e):
+                await message.reply_text(_MSG_FORBIDDEN)
+            else:
+                logger.error("[BROADCAST] DM error for user_id=%s: %s", uid, e)
+                await message.reply_text(f"⚠️ Ошибка отправки: {e}")
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -223,13 +218,6 @@ def build_handlers():
                 filters.TEXT | filters.PHOTO | filters.VIDEO
                 | filters.Document.ALL | filters.AUDIO | filters.VOICE
             ),
-            handle_broadcast_message,
-        ),
-        MessageHandler(
-            _private & ~filters.COMMAND & (
-                filters.TEXT | filters.PHOTO | filters.VIDEO
-                | filters.Document.ALL | filters.AUDIO | filters.VOICE
-            ),
-            handle_dm_message,
+            handle_pending_message,
         ),
     ]
