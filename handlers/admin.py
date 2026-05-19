@@ -167,11 +167,23 @@ async def cmd_adddays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     added = db.add_days(target["user_id"], activity_type, days, now_msk.month, now_msk.year)
     label = _ACTIVITY_LABEL[activity_type]
 
+    xp_line = ""
+    rewards = []
+    if activity_type == "exercise" and added > 0:
+        xp_earned = added * 10
+        old_xp = db.get_user_xp(target["user_id"])
+        new_total_xp = db.add_xp(target["user_id"], xp_earned, reason="exercise_manual")
+        db.log_xp(target["user_id"], xp_earned, "зарядка (admin)", "admin", caller.id)
+        xp_line = f" Начислено {xp_earned} XP."
+        rewards = db.check_and_award_level(target["user_id"], old_xp, new_total_xp)
+
     await message.reply_text(
-        f"{msg.get(msg.DAYS_ADDED)}\n\n"
-        f"<b>{display}</b> — добавлено {added} дн. ({label}).",
+        f"✅ Добавлено {added} дн. ({label}) — <b>{display}</b>.{xp_line}",
         parse_mode="HTML",
     )
+
+    if rewards:
+        await send_level_up_notifications(context, display, rewards)
 
 
 async def cmd_removedays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

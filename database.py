@@ -1,7 +1,10 @@
 import calendar
 import datetime
+import logging
 from supabase import create_client, Client
 from config import SUPABASE_URL, SUPABASE_KEY
+
+logger = logging.getLogger(__name__)
 
 LEVELS = [0, 50, 150, 300, 500, 750, 1100, 1600, 2200, 3000,
           4000, 5200, 6600, 8200, 10000, 12000, 14500, 17500, 21000, 25000]
@@ -311,7 +314,8 @@ def get_xp_leaderboard() -> list[dict]:
     return result
 
 
-def add_xp(user_id: int, xp: int) -> int:
+def add_xp(user_id: int, xp: int, reason: str = "") -> int:
+    logger.info(f"[ADD_XP] called: user_id={user_id}, amount={xp}, reason={reason}")
     existing = _client.table("xp").select("total_xp").eq("user_id", user_id).limit(1).execute()
     if existing.data:
         new_total = max(0, (existing.data[0]["total_xp"] or 0) + xp)

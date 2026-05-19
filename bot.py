@@ -188,7 +188,7 @@ def main() -> None:
         )
 
     logger.info("Подпольщик Билл выходит на связь...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
 if __name__ == "__main__":
