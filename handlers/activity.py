@@ -145,10 +145,17 @@ async def _handle_exercise(message, user, context, is_edit: bool = False, activi
     db.record_activity(user.id, "exercise", today)
     await message.reply_text(msg.get(msg.EXERCISE_ACCEPTED))
 
-    old_xp = db.get_user_xp(user.id)
-    new_xp = db.add_xp(user.id, 10)
-    db.log_xp(user.id, 10, 'зарядка', 'auto')
-    rewards = db.check_and_award_level(user.id, old_xp, new_xp)
+    rewards = []
+    try:
+        old_xp = db.get_user_xp(user.id)
+        new_xp = db.add_xp(user.id, 10)
+        db.log_xp(user.id, 10, 'зарядка', 'auto')
+        rewards = db.check_and_award_level(user.id, old_xp, new_xp)
+    except Exception as e:
+        import traceback as tb
+        print(f"[EXERCISE] ERROR in add_xp/check_and_award_level: {type(e).__name__}: {e}")
+        tb.print_exc()
+
     if rewards:
         name = get_display_name({"user_id": user.id, "username": user.username,
                                   "first_name": user.first_name, "last_name": user.last_name})
@@ -157,7 +164,7 @@ async def _handle_exercise(message, user, context, is_edit: bool = False, activi
     await _update_pinned_leaderboard(context, "exercise")
 
 
-async def _handle_food(message, user, context) -> None:
+async def _handle_food(message, user, context, is_edit: bool = False) -> None:
     combined = (message.caption or "") + " " + (message.text or "")
     if "#еда" not in combined.lower():
         return
@@ -171,7 +178,8 @@ async def _handle_food(message, user, context) -> None:
 
     today = get_moscow_date()
     if db.is_food_recorded(user.id, today):
-        await message.reply_text(msg.get(msg.FOOD_ALREADY))
+        if not is_edit:
+            await message.reply_text(msg.get(msg.FOOD_ALREADY))
         return
 
     db.record_food(user.id, today, today.month, today.year)
@@ -187,7 +195,7 @@ def _has_post_tag(text: str | None) -> bool:
     return "#пост" in (text or "").lower()
 
 
-async def _handle_writing(message, user, context) -> None:
+async def _handle_writing(message, user, context, is_edit: bool = False) -> None:
     combined = (message.text or "") + " " + (message.caption or "")
     if not _has_link(combined) or not _has_post_tag(combined):
         return
@@ -201,12 +209,14 @@ async def _handle_writing(message, user, context) -> None:
 
     today = get_moscow_date()
     if db.check_writing_duplicate(user.id, today):
-        await message.reply_text(msg.get(msg.WRITING_ALREADY))
+        if not is_edit:
+            await message.reply_text(msg.get(msg.WRITING_ALREADY))
         return
 
     streak = db.record_writing_post(user.id, today, today.month, today.year)
     if streak == 0:
-        await message.reply_text(msg.get(msg.WRITING_ALREADY))
+        if not is_edit:
+            await message.reply_text(msg.get(msg.WRITING_ALREADY))
         return
 
     old_xp = db.get_user_xp(user.id)
@@ -248,9 +258,9 @@ async def handle_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif thread_id == EXERCISE_THREAD_ID and message.video:
         await _handle_exercise(message, user, context, is_edit=is_edit, activity_date=activity_date)
     elif SALO_THREAD_ID and thread_id == SALO_THREAD_ID and message.photo:
-        await _handle_food(message, user, context)
+        await _handle_food(message, user, context, is_edit=is_edit)
     elif WRITERS_THREAD_ID and thread_id == WRITERS_THREAD_ID:
-        await _handle_writing(message, user, context)
+        await _handle_writing(message, user, context, is_edit=is_edit)
 
 
 def build_handler() -> MessageHandler:

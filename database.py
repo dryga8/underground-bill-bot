@@ -689,7 +689,7 @@ def add_monthly_steps(user_id: int, steps: int, month: int, year: int) -> int:
 
 
 def migrate_monthly_steps() -> None:
-    """Migrate steps data from activities to monthly_steps. Idempotent — safe to run on every startup."""
+    """Migrate steps data from activities to monthly_steps. Skips groups that already have a record."""
     res = (
         _client.table("activities")
         .select("user_id, month, year, steps_count")
@@ -702,15 +702,28 @@ def migrate_monthly_steps() -> None:
         key = (row["user_id"], row["month"], row["year"])
         agg[key] += (row.get("steps_count") or 0)
 
+    inserted = 0
     for (uid, month, year), total in agg.items():
-        _client.table("monthly_steps").upsert({
+        existing = (
+            _client.table("monthly_steps")
+            .select("user_id")
+            .eq("user_id", uid)
+            .eq("month", month)
+            .eq("year", year)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            continue
+        _client.table("monthly_steps").insert({
             "user_id": uid,
             "month": month,
             "year": year,
             "total_steps_month": total,
         }).execute()
+        inserted += 1
 
-    print(f"[MIGRATE] monthly_steps: processed {len(agg)} (user, month, year) groups")
+    print(f"[MIGRATE] monthly_steps: {inserted} inserted, {len(agg) - inserted} skipped (already exist)")
 
 
 # ---------------------------------------------------------------------------
