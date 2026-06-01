@@ -465,6 +465,47 @@ async def cmd_addwriting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
+async def cmd_setstreak(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if not message:
+        return
+
+    caller = update.effective_user
+    if not caller or not _is_privileged(caller.id):
+        await message.reply_text("Недостаточно полномочий. Это для командования.")
+        return
+
+    if not context.args or len(context.args) < 2:
+        await message.reply_text("Формат: /setstreak @username 7")
+        return
+
+    username = context.args[0].lstrip("@")
+    try:
+        streak = int(context.args[1])
+    except ValueError:
+        await message.reply_text("Стрик должен быть целым числом.")
+        return
+
+    if streak < 0:
+        await message.reply_text("Стрик не может быть отрицательным.")
+        return
+
+    target = db.get_user_by_username(username)
+    if not target:
+        await message.reply_text(f"Боец @{username} в архивах не найден.")
+        return
+
+    now_msk = datetime.datetime.now(MOSCOW_TZ)
+    result = db.set_writing_streak(target["user_id"], streak, now_msk.month, now_msk.year)
+    display = get_display_name(target)
+
+    await message.reply_text(
+        f"Приказ выполнен. Стрик бойца <b>{display}</b> установлен на {streak} дн.\n"
+        f"Рекорд месяца: {result['max_streak_this_month']} дн. Билл зафиксировал.",
+        parse_mode="HTML",
+    )
+
+
 async def cmd_addfood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     if not message:
@@ -592,6 +633,7 @@ def build_handlers():
         CommandHandler("addsteps", cmd_addsteps, filters=_group),
         CommandHandler("addsalo", cmd_addsalo, filters=_group),
         CommandHandler("addwriting", cmd_addwriting, filters=_group),
+        CommandHandler("setstreak", cmd_setstreak, filters=_group),
         CommandHandler("addfood", cmd_addfood, filters=_group),
         CommandHandler("fullreset", cmd_fullreset, filters=_group),
         CommandHandler("xplog", cmd_xplog, filters=_group),

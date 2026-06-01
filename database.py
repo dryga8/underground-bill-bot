@@ -940,6 +940,30 @@ def reset_writing_streaks() -> None:
     }).gte("user_id", 0).execute()
 
 
+def set_writing_streak(user_id: int, streak: int, month: int, year: int) -> dict:
+    """Set current_streak to exact value. Updates max_streak_this_month if streak is higher. Returns new values."""
+    res = _client.table("writing_streaks").select("*").eq("user_id", user_id).limit(1).execute()
+    if res.data:
+        row = res.data[0]
+        new_max = max(row.get("max_streak_this_month") or 0, streak)
+        _client.table("writing_streaks").update({
+            "current_streak": streak,
+            "max_streak_this_month": new_max,
+            "month": month,
+            "year": year,
+        }).eq("user_id", user_id).execute()
+    else:
+        new_max = streak
+        _client.table("writing_streaks").insert({
+            "user_id": user_id,
+            "current_streak": streak,
+            "max_streak_this_month": new_max,
+            "month": month,
+            "year": year,
+        }).execute()
+    return {"current_streak": streak, "max_streak_this_month": new_max}
+
+
 def check_writing_duplicate(user_id: int, post_date: datetime.date) -> bool:
     """Returns True if user already posted today."""
     res = _client.table("writing_streaks").select("last_post_date").eq("user_id", user_id).limit(1).execute()
